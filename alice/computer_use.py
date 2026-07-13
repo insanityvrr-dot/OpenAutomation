@@ -23,9 +23,10 @@ try:
     import pyautogui
     from PIL import Image
 except Exception as e:
-    print(f"[!] Warning: GUI framework initialization failed ({e}).")
-    print("    This is common in environments without X11/DISPLAY active (e.g., headless, SSH, or Wayland).")
-    print("    Alice will fallback to developer-only CLI console capabilities.")
+    if "--clean" not in sys.argv:
+        print(f"[!] Warning: GUI framework initialization failed ({e}).")
+        print("    This is common in environments without X11/DISPLAY active (e.g., headless, SSH, or Wayland).")
+        print("    Alice will fallback to developer-only CLI console capabilities.")
     pyautogui = None
     Image = None
 
@@ -39,9 +40,10 @@ class ComputerUseDriver:
     def __init__(self):
         self.display_server = self._detect_display_server()
         self.screen_width, self.screen_height = self._get_screen_resolution()
-        print(f"[*] Alice Driver Initialized.")
-        print(f"    - Display Server: {self.display_server.upper()}")
-        print(f"    - Resolution: {self.screen_width}x{self.screen_height}")
+        if "--clean" not in sys.argv:
+            print(f"[*] Alice Driver Initialized.")
+            print(f"    - Display Server: {self.display_server.upper()}")
+            print(f"    - Resolution: {self.screen_width}x{self.screen_height}")
 
     def _detect_display_server(self) -> str:
         """Detect whether the current environment is running X11 or Wayland."""

@@ -205,7 +205,17 @@ class LoonarCognitiveEngine:
             return f"<thought>{thought}</thought>\n{response}"
 
         subject = self.extract_subject(prompt)
-        if is_followup and last_topic:
+        # Check if the prompt explicitly contains a direct KB match
+        direct_kb_match = None
+        for key in self.kb:
+            if key in prompt_lower:
+                direct_kb_match = key
+                break
+                
+        if direct_kb_match:
+            subject = direct_kb_match
+            is_followup = False
+        elif is_followup and last_topic:
             subject = last_topic
             
         kb_match = None
@@ -282,13 +292,14 @@ class LoonarCognitiveEngine:
 
 
 class AliceAgent:
-    def __init__(self, use_mock_vlm=False, autopilot=False):
+    def __init__(self, use_mock_vlm=False, autopilot=False, clean_output=False):
         self.driver = ComputerUseDriver()
         self.use_mock_vlm = use_mock_vlm
         self.max_steps = 15
         self.screenshot_file = "alice_active_view.png"
         self.current_step = 1
         self.autopilot = autopilot
+        self.clean_output = clean_output
         self.cognitive_engine = LoonarCognitiveEngine()
 
     def explore_files_tree(self) -> str:
@@ -668,32 +679,48 @@ class AliceAgent:
         Runs the text-based Developer & Q&A Assistant.
         Allows Alice to solve any logical task, write files, run compilers, and answer normal conversations.
         """
-        console.print(f"\n[bold cyan]🐺 Entering Developer & Q&A Assistant Mode (LOONAR V1.0) 🐺[/]")
-        console.print(f"[bold cyan]Prompt: '{prompt}'[/]\n")
+        prompt_lower = prompt.lower().strip()
+        is_chat = not any(k in prompt_lower for k in ["write", "create", "make", "build", "script", "program", "code", "run", "execute", "setup", "install", "test", "todo", "calculator", "game", "server", "api", "automation"])
+
+        if not self.clean_output:
+            if is_chat:
+                # Elegant silent thinking for casual chat
+                pass
+            else:
+                console.print(f"\n[bold cyan]🐺 Entering Developer & Q&A Assistant Mode (LOONAR V1.0) 🐺[/]")
+                console.print(f"[bold cyan]Prompt: '{prompt}'[/]\n")
+                console.print("[bold purple][Alice]: Thinking with LOONAR V1.0 Expert AI Engine...[/]")
+                time.sleep(0.5)
         
-        # 1. Generate response using native LOONAR V1.0 Expert Agent AI Algorithm
-        console.print("[bold purple][Alice]: Thinking with LOONAR V1.0 Expert AI Engine...[/]")
-        time.sleep(0.5)
         response_text = self._generate_offline_assistant_response(prompt)
 
         # 2. Display thought
         thought_match = re.search(r"<thought>(.*?)</thought>", response_text, re.DOTALL)
         if thought_match:
-            console.print(Panel(thought_match.group(1).strip(), title="Alice Inner Thought", border_style="purple"))
+            if not self.clean_output and not is_chat:
+                console.print(Panel(thought_match.group(1).strip(), title="Alice Inner Thought", border_style="purple"))
             # Clean response text of thought tags for presentation
             clean_display_text = re.sub(r"<thought>.*?</thought>", "", response_text, flags=re.DOTALL).strip()
         else:
             clean_display_text = response_text
 
         # Render markdown/text response
-        console.print("\n[bold cyan]🐺 [Alice Output]:[/]")
         # Remove write_file and execute_command blocks from standard text display so it looks clean
         clean_presentation = re.sub(r"<write_file.*?>.*?</write_file>", "", clean_display_text, flags=re.DOTALL)
         clean_presentation = re.sub(r"<execute_command>.*?</execute_command>", "", clean_presentation, flags=re.DOTALL)
         clean_presentation = clean_presentation.strip()
         
-        if clean_presentation:
-            console.print(Panel(clean_presentation, border_style="cyan"))
+        if self.clean_output:
+            print(clean_presentation)
+        else:
+            if is_chat:
+                # Beautiful, clean presentation for conversational chat
+                if clean_presentation:
+                    console.print(Panel(clean_presentation, border_style="cyan", title="🐺 Alice"))
+            else:
+                console.print("\n[bold cyan]🐺 [Alice Output]:[/]")
+                if clean_presentation:
+                    console.print(Panel(clean_presentation, border_style="cyan"))
 
         # 3. Handle file write requests
         write_matches = list(re.finditer(r'<write_file\s+path=["\'](.*?)["\']>(.*?)</write_file>', response_text, re.DOTALL))
@@ -702,20 +729,23 @@ class AliceAgent:
             file_content = wm.group(2).strip()
             
             if self.autopilot:
-                console.print("\n" + "="*55, style="bold green")
-                console.print("   [🚀 AUTOPILOT ACTIVE - AUTO-WRITING FILE]   ", style="bold green reverse")
-                console.print("="*55, style="bold green")
-                console.print(f" [*] Target File: [bold cyan]{file_path}[/]")
-                console.print("="*55, style="bold green")
+                if not self.clean_output:
+                    console.print("\n" + "="*55, style="bold green")
+                    console.print("   [🚀 AUTOPILOT ACTIVE - AUTO-WRITING FILE]   ", style="bold green reverse")
+                    console.print("="*55, style="bold green")
+                    console.print(f" [*] Target File: [bold cyan]{file_path}[/]")
+                    console.print("="*55, style="bold green")
                 
                 try:
                     if os.path.dirname(os.path.abspath(file_path)):
                         os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)
                     with open(file_path, "w") as f:
                         f.write(file_content)
-                    console.print(f"[bold green][✓] Successfully auto-wrote file: {file_path}[/]")
+                    if not self.clean_output:
+                        console.print(f"[bold green][✓] Successfully auto-wrote file: {file_path}[/]")
                 except Exception as e:
-                    console.print(f"[bold red][!] Auto-write failed: {e}[/]")
+                    if not self.clean_output:
+                        console.print(f"[bold red][!] Auto-write failed: {e}[/]")
                 continue
 
             console.print("\n" + "="*55, style="bold yellow")
@@ -746,24 +776,27 @@ class AliceAgent:
             cmd = cm.group(1).strip()
             
             if self.autopilot:
-                console.print("\n" + "="*55, style="bold green")
-                console.print("   [🚀 AUTOPILOT ACTIVE - AUTO-EXECUTING SHELL COMMAND]   ", style="bold green reverse")
-                console.print("="*55, style="bold green")
-                console.print(f" [*] Running: [bold red]{cmd}[/]")
-                console.print("="*55, style="bold green")
+                if not self.clean_output:
+                    console.print("\n" + "="*55, style="bold green")
+                    console.print("   [🚀 AUTOPILOT ACTIVE - AUTO-EXECUTING SHELL COMMAND]   ", style="bold green reverse")
+                    console.print("="*55, style="bold green")
+                    console.print(f" [*] Running: [bold red]{cmd}[/]")
+                    console.print("="*55, style="bold green")
                 
                 try:
                     import subprocess
                     result = subprocess.run(cmd, shell=True, text=True, capture_output=True)
-                    if result.stdout:
-                        console.print("\n[bold green][Standard Output]:[/]")
-                        console.print(result.stdout)
-                    if result.stderr:
-                        console.print("\n[bold red][Standard Error]:[/]")
-                        console.print(result.stderr)
-                    console.print(f"[bold green][✓] Command finished with exit code: {result.returncode}[/]")
+                    if not self.clean_output:
+                        if result.stdout:
+                            console.print("\n[bold green][Standard Output]:[/]")
+                            console.print(result.stdout)
+                        if result.stderr:
+                            console.print("\n[bold red][Standard Error]:[/]")
+                            console.print(result.stderr)
+                        console.print(f"[bold green][✓] Command finished with exit code: {result.returncode}[/]")
                 except Exception as e:
-                    console.print(f"[bold red][!] Auto-execution failed: {e}[/]")
+                    if not self.clean_output:
+                        console.print(f"[bold red][!] Auto-execution failed: {e}[/]")
                 continue
 
             console.print("\n" + "="*55, style="bold yellow")
@@ -1647,7 +1680,7 @@ class AliceAgent:
         # =========================================================================
         # 3. CONVERSATIONAL CASUAL CHAT MODULES & DIALOG
         # =========================================================================
-        elif not any(k in prompt_lower for k in ["write", "create", "make", "build", "script", "program", "code", "run", "execute", "setup", "install", "test", "todo", "calculator", "game", "server", "api", "automation"]):
+        elif not bool(re.search(r"\b(write|create|make|build|script|program|code|run|execute|setup|install|test|todo|calculator|game|server|api|automation)\b", prompt_lower)):
             return self.cognitive_engine.generate_response(prompt)
 
         # General coding fallback (User is asking to write, run, or automate code/scripts)
@@ -1879,6 +1912,7 @@ if __name__ == "__main__":
     parser.add_argument("task", type=str, nargs="*", help="Task for Alice (e.g. 'Open Firefox and star repo')")
     parser.add_argument("--mock", action="store_true", help="Run with local LOONAR V1.0 Engine (default)")
     parser.add_argument("--autopilot", action="store_true", help="Run in fully autonomous autopilot mode")
+    parser.add_argument("--clean", action="store_true", help="Print only clean final text response without formatting/banners")
     parser.add_argument("--telegram-token", type=str, help="Set Telegram Bot API token in config")
     parser.add_argument("--telegram-chat-id", type=str, help="Set Authorized Telegram Chat ID in config")
     parser.add_argument("--telegram-enable", action="store_true", help="Enable Telegram Bot Polling Daemon")
@@ -1925,7 +1959,7 @@ if __name__ == "__main__":
         console.print(f"• Enabled: {config.get('enabled')}")
         sys.exit(0)
 
-    agent = AliceAgent(use_mock_vlm=args.mock, autopilot=args.autopilot)
+    agent = AliceAgent(use_mock_vlm=args.mock, autopilot=args.autopilot, clean_output=args.clean)
 
     if args.task:
         task_str = " ".join(args.task)

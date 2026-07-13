@@ -340,7 +340,7 @@ const SCENARIOS: Scenario[] = [
 ];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"simulator" | "code" | "docs" | "telegram">("simulator");
+  const [activeTab, setActiveTab] = useState<"simulator" | "code" | "docs" | "telegram" | "update">("simulator");
   const [selectedScenarioIdx, setSelectedScenarioIdx] = useState(0);
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -360,7 +360,13 @@ export default function App() {
   const [revealToken, setRevealToken] = useState(false);
   const [isSavingTelegram, setIsSavingTelegram] = useState(false);
 
-  // Load Telegram configuration on startup
+  // Update integration state variables
+  const [githubRepoUrl, setGithubRepoUrl] = useState("");
+  const [updateStatus, setUpdateStatus] = useState<"idle" | "running" | "success" | "error">("idle");
+  const [updateLog, setUpdateLog] = useState("");
+  const [isSavingRepoUrl, setIsSavingRepoUrl] = useState(false);
+
+  // Load Telegram and Update configuration on startup
   useEffect(() => {
     fetch("/api/telegram/config")
       .then((res) => res.json())
@@ -371,6 +377,13 @@ export default function App() {
         setTelegramIsPolling(data.isPolling || false);
       })
       .catch((err) => console.error("Error loading Telegram config:", err));
+
+    fetch("/api/update/config")
+      .then((res) => res.json())
+      .then((data) => {
+        setGithubRepoUrl(data.githubRepo || "");
+      })
+      .catch((err) => console.error("Error loading update config:", err));
   }, []);
 
   // Poll log stream and update polling status when the Telegram tab is selected
@@ -446,6 +459,65 @@ export default function App() {
       }
     } catch (err: any) {
       console.error("Error toggling Telegram polling:", err);
+    }
+  };
+
+  const handleSaveRepoUrl = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingRepoUrl(true);
+    try {
+      const res = await fetch("/api/update/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          githubRepo: githubRepoUrl,
+        }),
+      });
+      const data = await res.json();
+      if (data.status === "success") {
+        setGithubRepoUrl(data.githubRepo || "");
+        alert("✨ GitHub update URL saved successfully!");
+      } else {
+        alert("⚠️ Failed to update configuration.");
+      }
+    } catch (err: any) {
+      alert(`⚠️ Connection error: ${err.message}`);
+    } finally {
+      setIsSavingRepoUrl(false);
+    }
+  };
+
+  const handleTriggerUpdate = async () => {
+    if (updateStatus === "running") return;
+    
+    setUpdateStatus("running");
+    setUpdateLog("🔄 Contacting update host...\nStarting software update sequence on server...\n");
+    
+    try {
+      const res = await fetch("/api/update/trigger", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          githubRepo: githubRepoUrl,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUpdateStatus("success");
+        setUpdateLog(data.log);
+        alert("✨ Update successful! Rebuilt successfully. The host application will reload in 1.5 seconds.");
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else {
+        setUpdateStatus("error");
+        setUpdateLog(data.log);
+        alert("❌ Update failed! See output logs below.");
+      }
+    } catch (err: any) {
+      setUpdateStatus("error");
+      setUpdateLog((prev) => prev + `\n[!] HTTP Connection Error: ${err.message}\n`);
+      alert(`⚠️ Connection error: ${err.message}`);
     }
   };
 
@@ -710,6 +782,17 @@ export default function App() {
           >
             <Info className="w-4 h-4" />
             1-Click Installer Guide
+          </button>
+          <button 
+            onClick={() => setActiveTab("update")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === "update" 
+                ? "bg-neutral-800 text-white shadow-inner" 
+                : "text-neutral-400 hover:text-white"
+            }`}
+          >
+            <RotateCcw className="w-4 h-4" />
+            Software Update
           </button>
         </div>
 
@@ -1631,6 +1714,141 @@ export default function App() {
                   <div className="flex items-center gap-1 text-purple-500 animate-pulse mt-1 font-bold">
                     <span>❯</span>
                     <span className="w-1.5 h-3.5 bg-purple-500 inline-block animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB CONTENT: Software Update */}
+        {activeTab === "update" && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start flex-1 mb-8 animate-fade-in">
+            {/* Left Column - Repository Config */}
+            <div className="lg:col-span-5 flex flex-col gap-5">
+              <div className="bg-neutral-900/60 border border-neutral-800 p-6 rounded-3xl backdrop-blur-md">
+                <div className="border-b border-neutral-800 pb-4 mb-5">
+                  <h2 className="text-base font-bold text-white flex items-center gap-2">
+                    <Globe className="w-5 h-5 text-purple-400" />
+                    Configure Git Target
+                  </h2>
+                  <p className="text-xs text-neutral-400 mt-1">Specify which GitHub repository to sync from.</p>
+                </div>
+
+                <form onSubmit={handleSaveRepoUrl} className="flex flex-col gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                      GitHub Repository URL
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="e.g. https://github.com/OpenAutomation/alice.git"
+                      value={githubRepoUrl}
+                      onChange={(e) => setGithubRepoUrl(e.target.value)}
+                      className="w-full bg-neutral-950 border border-neutral-800 text-xs rounded-xl px-3 py-3 focus:outline-none focus:ring-1 focus:ring-purple-500 text-neutral-200 placeholder-neutral-600 font-mono"
+                    />
+                    <p className="text-[10px] text-neutral-500 mt-1.5 leading-relaxed">
+                      Entering a GitHub repository URL allows Alice to pull code updates directly using Git. Leaving this empty is only valid if a local <code>.git</code> repository with configured origin is already initialized in this directory.
+                    </p>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSavingRepoUrl}
+                    className="w-full mt-2 bg-neutral-800 hover:bg-neutral-700 text-white font-bold py-3 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 active:scale-98 disabled:opacity-50 border border-neutral-700/50"
+                  >
+                    {isSavingRepoUrl ? "Saving URL..." : "Save Repository URL"}
+                  </button>
+                </form>
+              </div>
+
+              {/* Direct Access Quick Card */}
+              <div className="bg-neutral-900/60 border border-neutral-800 p-5 rounded-3xl backdrop-blur-md flex flex-col gap-3">
+                <h3 className="text-xs font-bold text-neutral-300 uppercase tracking-wider">Browser Direct Trigger</h3>
+                <p className="text-xs text-neutral-400 leading-relaxed">
+                  You can trigger the update process directly in your browser or through external cron jobs by navigating to the absolute <code>/update</code> endpoint.
+                </p>
+                <a
+                  href="/update"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full bg-purple-950/20 hover:bg-purple-950/40 text-purple-300 font-bold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 border border-purple-800/40 active:scale-98"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Open /update in New Tab
+                </a>
+              </div>
+            </div>
+
+            {/* Right Column - Execution State and Live Terminal Logs */}
+            <div className="lg:col-span-7 flex flex-col gap-5">
+              <div className="bg-neutral-900/60 border border-neutral-800 p-6 rounded-3xl backdrop-blur-md flex flex-col gap-4">
+                <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+                  <div>
+                    <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                      <RotateCcw className={`w-4.5 h-4.5 text-purple-400 ${updateStatus === "running" ? "animate-spin" : ""}`} />
+                      Update Engine Console
+                    </h2>
+                    <p className="text-xs text-neutral-400 mt-0.5">Deploy the latest releases from GitHub on autopilot.</p>
+                  </div>
+                  
+                  <button
+                    onClick={handleTriggerUpdate}
+                    disabled={updateStatus === "running"}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-98 ${
+                      updateStatus === "running"
+                        ? "bg-purple-950/40 text-purple-400 border border-purple-800/30 cursor-not-allowed"
+                        : "bg-purple-600 hover:bg-purple-500 text-white"
+                    }`}
+                  >
+                    {updateStatus === "running" ? "Updating Software..." : "Trigger Auto-Update"}
+                  </button>
+                </div>
+
+                {/* Status indicator bar */}
+                <div className={`p-4 rounded-xl flex items-center gap-3 border ${
+                  updateStatus === "running"
+                    ? "bg-purple-950/10 border-purple-900/40 text-purple-300"
+                    : updateStatus === "success"
+                    ? "bg-emerald-950/10 border-emerald-900/40 text-emerald-300"
+                    : updateStatus === "error"
+                    ? "bg-red-950/10 border-red-900/40 text-red-300"
+                    : "bg-neutral-950 border-neutral-850 text-neutral-400"
+                }`}>
+                  {updateStatus === "running" ? (
+                    <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin shrink-0" />
+                  ) : updateStatus === "success" ? (
+                    <span className="text-base shrink-0">✅</span>
+                  ) : updateStatus === "error" ? (
+                    <span className="text-base shrink-0">❌</span>
+                  ) : (
+                    <span className="text-base shrink-0">⚙️</span>
+                  )}
+                  <div className="text-xs">
+                    {updateStatus === "running" && <span><strong>Update Active:</strong> Fetching Git commits, synchronizing dependencies, and rebuilding client bundle. Please hold...</span>}
+                    {updateStatus === "success" && <span><strong>Update Succeeded!</strong> Code base is up-to-date and server restarted. Reloading tab now...</span>}
+                    {updateStatus === "error" && <span><strong>Update Failed:</strong> Critical command returned non-zero exit code. Consult execution log below.</span>}
+                    {updateStatus === "idle" && <span><strong>Engine Standby:</strong> Press "Trigger Auto-Update" to fetch latest remote repository sources.</span>}
+                  </div>
+                </div>
+
+                {/* Execution output terminal block */}
+                <div className="flex flex-col gap-2 flex-1 min-h-[320px]">
+                  <div className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">Console stdout / stderr stream</div>
+                  <div className="flex-1 bg-neutral-950 rounded-2xl border border-neutral-850 p-4 font-mono text-[11px] text-neutral-300 overflow-y-auto max-h-[320px] select-text">
+                    {updateLog ? (
+                      <pre className="whitespace-pre-wrap font-sans leading-relaxed text-neutral-300">{updateLog}</pre>
+                    ) : (
+                      <div className="text-neutral-500 italic text-center py-12">
+                        No active update trace found. Trigger an update to see terminal logging streams here.
+                      </div>
+                    )}
+                    {updateStatus === "running" && (
+                      <div className="flex items-center gap-1 text-purple-500 animate-pulse mt-2 font-bold">
+                        <span>❯ running git fetch & npm build ...</span>
+                        <span className="w-1.5 h-3.5 bg-purple-500 inline-block animate-pulse" />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

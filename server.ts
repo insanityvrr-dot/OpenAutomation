@@ -12,7 +12,7 @@ app.use(express.json());
 
 // Telegram Bot configurations (Local-first persistent caching)
 const CONFIG_FILE = path.join(process.cwd(), "telegram_config.json");
-let telegramConfig = { token: "", chatId: "", enabled: false };
+let telegramConfig = { token: "", chatId: "", enabled: false, githubRepo: "" };
 let telegramLogs: string[] = [];
 let lastUpdateId = 0;
 let isPolling = false;
@@ -99,14 +99,44 @@ async function handleTelegramMessage(message: any) {
   const textLower = text.toLowerCase();
   
   if (text.startsWith("/start")) {
-    const welcome = `🐺 *Welcome to Alice Telegram Pilot Bot (LOONAR V1.0)!* 🐺\n\nYou are securely connected to your offline automation host. From here, you can monitor, query, and run tasks on your system remotely.\n\n📚 *Available Commands:*\n• \`/help\` - View manual and guidelines\n• \`/status\` - Audit server CPU temperature and state\n• \`/ls\` - Traverse local workspace folders\n• \`/search <pattern>\` - Search workspace for keywords\n• \`/screenshot\` - Capture active desktop view\n\n🎯 *Raw Task:* Send any instruction directly (e.g. \`Create todo app in python\`) to trigger Alice in Autopilot mode!`;
+    const welcome = `🐺 *Welcome to Alice Telegram Pilot Bot (LOONAR V1.0)!* 🐺\n\nYou are securely connected to your offline automation host. From here, you can monitor, query, and run tasks on your system remotely.\n\n📚 *Available Commands:*\n• \`/help\` - View manual and guidelines\n• \`/status\` - Audit server CPU temperature and state\n• \`/ls\` - Traverse local workspace folders\n• \`/search <pattern>\` - Search workspace for keywords\n• \`/screenshot\` - Capture active desktop view\n• \`/update [repo_url]\` - Update application from GitHub\n\n🎯 *Raw Task:* Send any instruction directly (e.g. \`Create todo app in python\`) to trigger Alice in Autopilot mode!`;
     await sendTelegramMessage(chatId, welcome);
     return;
   }
   
   if (text.startsWith("/help")) {
-    const help = `🛠️ *Alice Telegram Pilot Manual:*\n\n• *Raw Instructions:* Text any system automation or code task (e.g. "write a python hello world script"). Alice will run on autopilot, create files, compile them, and send the console output back to you.\n• \`/screenshot\` - Captures and uploads a photo of the current desktop visual buffer.\n• \`/status\` - Reports system platform info and active CPU load average.\n• \`/ls\` - Lists project files recursively.\n• \`/search <keyword>\` - Scans files for matching text lines.\n\n🔒 *Security:* All commands are isolated to your registered Chat ID. Telemetry is 100% disabled.`;
+    const help = `🛠️ *Alice Telegram Pilot Manual:*\n\n• *Raw Instructions:* Text any system automation or code task (e.g. "write a python hello world script"). Alice will run on autopilot, create files, compile them, and send the console output back to you.\n• \`/screenshot\` - Captures and uploads a photo of the current desktop visual buffer.\n• \`/status\` - Reports system platform info and active CPU load average.\n• \`/ls\` - Lists project files recursively.\n• \`/search <keyword>\` - Scans files for matching text lines.\n• \`/update [repo_url]\` - Pulls the latest software version from GitHub, resolves packages, and rebuilds the application automatically.\n\n🔒 *Security:* All commands are isolated to your registered Chat ID. Telemetry is 100% disabled.`;
     await sendTelegramMessage(chatId, help);
+    return;
+  }
+
+  if (text.startsWith("/update")) {
+    const argsStr = text.replace(/^\/update\s*/i, "").trim();
+    const repoUrl = argsStr || undefined;
+    
+    if (repoUrl) {
+      telegramConfig.githubRepo = repoUrl;
+      saveConfig();
+    }
+    
+    await sendTelegramMessage(chatId, `🔄 *Alice Software Update Started...*\n\nPulling latest software modules from GitHub, running package updates, and compiling production builds. This might take 15-30 seconds...`);
+    
+    const result = await performUpdate(repoUrl);
+    
+    if (result.success) {
+      const cleanLog = result.log.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+      const trimmedLog = cleanLog.length > 3000 ? cleanLog.substring(0, 3000) + "\n\n...[Log Truncated]..." : cleanLog;
+      await sendTelegramMessage(chatId, `✅ *Update Succeeded!* 🐺\n\nThe software has been updated to the latest GitHub release.\n\n*Log:*\n\`\`\`text\n${trimmedLog}\n\`\`\``);
+      
+      addTelegramLog("Scheduling server restart in 1.5 seconds to load updated code...");
+      setTimeout(() => {
+        process.exit(0);
+      }, 1500);
+    } else {
+      const cleanLog = result.log.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+      const trimmedLog = cleanLog.length > 3000 ? cleanLog.substring(0, 3000) + "\n\n...[Log Truncated]..." : cleanLog;
+      await sendTelegramMessage(chatId, `❌ *Update Failed!* 🐺\n\nThere was an error updating the software. The current server will remain active.\n\n*Error Log:*\n\`\`\`text\n${trimmedLog}\n\`\`\``);
+    }
     return;
   }
   
@@ -164,23 +194,40 @@ async function handleTelegramMessage(message: any) {
     return;
   }
   
-  // Custom Raw Task Autopilot Execution
-  await sendTelegramMessage(chatId, `⚙️ *Alice Autopilot Activated:* Running task: "${text}"...`);
-  
-  // Sanitize task input for shell safety
+  // Determine if it is a casual conversational chat vs a developer/automation task
+  const isChat = !(/\b(write|create|make|build|script|program|code|run|execute|setup|install|test|todo|calculator|game|server|api|automation)\b/i.test(textLower));
   const safeText = text.replace(/"/g, '\\"');
   
-  exec(`python3 alice/agent.py --mock --autopilot "${safeText}"`, async (error, stdout, stderr) => {
-    let output = stdout.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, ''); // Strip ANSI bash colors
+  if (isChat) {
+    // Conversational Q&A Chat Mode
+    exec(`python3 alice/agent.py --mock --autopilot --clean "${safeText}"`, async (error, stdout, stderr) => {
+      let output = stdout.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '').trim();
+      addTelegramLog(`🤖 Conversational reply generated. Length: ${output.length} characters.`);
+      
+      if (!output) {
+        output = "🐺 Sorry, I didn't generate a response. Please try asking again!";
+      } else if (output.length > 3800) {
+        output = output.substring(0, 3800) + "\n\n...(Output truncated due to length limits)...";
+      }
+      
+      await sendTelegramMessage(chatId, output);
+    });
+    return;
+  }
+  
+  // Custom Raw Developer/Automation Task Autopilot Execution
+  await sendTelegramMessage(chatId, `⚙️ *Alice Autopilot Activated:* Running task: "${text}"...`);
+  
+  exec(`python3 alice/agent.py --mock --autopilot --clean "${safeText}"`, async (error, stdout, stderr) => {
+    let output = stdout.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '').trim();
     
     addTelegramLog(`🤖 Autopilot finished. Output length: ${output.length} characters.`);
     
-    // Parse output to find clean answers or write blocks
     if (output.length > 3800) {
       output = output.substring(0, 3800) + "\n\n...(Output truncated due to length limits)...";
     }
     
-    const replyText = `🤖 *Alice Execution Finished!* 🐺\n\n\`\`\`\n${output}\n\`\`\``;
+    const replyText = `🤖 *Alice Execution Finished!* 🐺\n\n${output}`;
     await sendTelegramMessage(chatId, replyText);
     
     // Send updated visual screenshot if it was generated
@@ -250,6 +297,7 @@ function loadConfig() {
       telegramConfig.token = data.token || "";
       telegramConfig.chatId = data.chatId || "";
       telegramConfig.enabled = !!data.enabled;
+      telegramConfig.githubRepo = data.githubRepo || "";
       addTelegramLog(`Loaded persistent configuration. Enabled state: ${telegramConfig.enabled}`);
       if (telegramConfig.enabled && telegramConfig.token) {
         startPolling();
@@ -268,6 +316,94 @@ function saveConfig() {
   } catch (e: any) {
     addTelegramLog(`Failed to write persistent config: ${e.message}`);
   }
+}
+
+// Helper to run shell commands synchronously/asynchronously and return output
+function runCmd(cmd: string, cwd: string = process.cwd()): Promise<{ stdout: string; stderr: string; code: number }> {
+  return new Promise((resolve) => {
+    exec(cmd, { cwd }, (error, stdout, stderr) => {
+      resolve({
+        stdout: stdout || "",
+        stderr: stderr || "",
+        code: error ? (error.code || 1) : 0
+      });
+    });
+  });
+}
+
+// Core updater module - clones/pulls git updates, npm install, and rebuilds
+async function performUpdate(repoUrl?: string): Promise<{ success: boolean; log: string }> {
+  let log = "";
+  const appendLog = (msg: string) => {
+    log += `[*] ${msg}\n`;
+    addTelegramLog(`[Update] ${msg}`);
+  };
+
+  const urlToUse = repoUrl || telegramConfig.githubRepo;
+  appendLog(`Starting software update. Using repository URL: ${urlToUse || "Not specified (using existing git repo)"}`);
+
+  const hasGit = fs.existsSync(path.join(process.cwd(), ".git"));
+  
+  if (!hasGit) {
+    if (!urlToUse) {
+      return {
+        success: false,
+        log: log + `[!] Error: No Git repository (.git) found in workspace, and no GitHub repository URL is configured.\n\nPlease provide a GitHub URL (e.g. by running "/update https://github.com/... " or entering it in the dashboard).`
+      };
+    }
+
+    appendLog("Initializing new Git repository...");
+    let res = await runCmd("git init");
+    log += res.stdout + res.stderr + "\n";
+    if (res.code !== 0) return { success: false, log };
+
+    appendLog(`Adding remote origin: ${urlToUse}`);
+    res = await runCmd(`git remote add origin "${urlToUse}"`);
+    log += res.stdout + res.stderr + "\n";
+    
+    appendLog("Fetching from remote origin...");
+    res = await runCmd("git fetch origin");
+    log += res.stdout + res.stderr + "\n";
+    if (res.code !== 0) return { success: false, log };
+
+    appendLog("Checking out main branch...");
+    res = await runCmd("git checkout -f main || git checkout -f master");
+    log += res.stdout + res.stderr + "\n";
+    if (res.code !== 0) return { success: false, log };
+  } else {
+    if (urlToUse) {
+      appendLog(`Updating remote origin URL to: ${urlToUse}`);
+      await runCmd(`git remote set-url origin "${urlToUse}"`);
+    }
+
+    appendLog("Fetching latest changes from origin...");
+    let res = await runCmd("git fetch --all");
+    log += res.stdout + res.stderr + "\n";
+    if (res.code !== 0) return { success: false, log };
+
+    appendLog("Detecting current branch...");
+    res = await runCmd("git rev-parse --abbrev-ref HEAD");
+    const branchName = res.stdout.trim() || "main";
+    appendLog(`Current branch detected: ${branchName}`);
+
+    appendLog(`Resetting hard to origin/${branchName}...`);
+    res = await runCmd(`git reset --hard "origin/${branchName}"`);
+    log += res.stdout + res.stderr + "\n";
+    if (res.code !== 0) return { success: false, log };
+  }
+
+  appendLog("Installing updated dependencies (npm install)...");
+  let res = await runCmd("npm install");
+  log += res.stdout + res.stderr + "\n";
+  if (res.code !== 0) return { success: false, log };
+
+  appendLog("Rebuilding application modules (npm run build)...");
+  res = await runCmd("npm run build");
+  log += res.stdout + res.stderr + "\n";
+  if (res.code !== 0) return { success: false, log };
+
+  appendLog("Update process completed successfully!");
+  return { success: true, log };
 }
 
 // Initial config loader
@@ -322,6 +458,213 @@ app.get("/api/telegram/logs", (req, res) => {
   res.json({
     logs: telegramLogs
   });
+});
+
+// =========================================================================
+// API ENDPOINTS FOR SOFTWARE UPDATE MANAGEMENT
+// =========================================================================
+app.get("/api/update/config", (req, res) => {
+  res.json({
+    githubRepo: telegramConfig.githubRepo || ""
+  });
+});
+
+app.post("/api/update/config", (req, res) => {
+  const { githubRepo } = req.body;
+  if (githubRepo !== undefined) {
+    telegramConfig.githubRepo = githubRepo.trim();
+    saveConfig();
+  }
+  res.json({
+    status: "success",
+    githubRepo: telegramConfig.githubRepo
+  });
+});
+
+app.post("/api/update/trigger", async (req, res) => {
+  const { githubRepo } = req.body;
+  if (githubRepo !== undefined) {
+    telegramConfig.githubRepo = githubRepo.trim();
+    saveConfig();
+  }
+  
+  const result = await performUpdate();
+  
+  if (result.success) {
+    res.json({
+      success: true,
+      log: result.log,
+      message: "Software successfully updated. Server is restarting..."
+    });
+    
+    // Restart server after sending response
+    setTimeout(() => {
+      process.exit(0);
+    }, 1500);
+  } else {
+    res.json({
+      success: false,
+      log: result.log,
+      message: "Update process failed. Check log for details."
+    });
+  }
+});
+
+// Full visual browser update dashboard endpoint (GET /update)
+app.get("/update", async (req, res) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Alice OpenAutomation Updater</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <style>
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          background: #09090b;
+          color: #f4f4f5;
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 40px 20px;
+          line-height: 1.5;
+        }
+        .card {
+          background: #18181b;
+          border: 1px solid #27272a;
+          border-radius: 16px;
+          padding: 30px;
+          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        }
+        h1, h2, h3 {
+          margin-top: 0;
+          color: #ffffff;
+        }
+        .accent-purple {
+          color: #a855f7;
+        }
+        .accent-green {
+          color: #10b981;
+        }
+        .accent-red {
+          color: #ef4444;
+        }
+        pre {
+          background: #09090b;
+          padding: 20px;
+          border-radius: 12px;
+          border: 1px solid #27272a;
+          overflow-x: auto;
+          max-height: 500px;
+          font-family: "JetBrains Mono", "Fira Code", monospace;
+          font-size: 12px;
+          line-height: 1.6;
+          color: #a1a1aa;
+        }
+        .spinner {
+          border: 3px solid rgba(255, 255, 255, 0.1);
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          border-left-color: #a855f7;
+          animation: spin 1s linear infinite;
+          display: inline-block;
+          vertical-align: middle;
+          margin-right: 15px;
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        .status-box {
+          background: rgba(168, 85, 247, 0.1);
+          border: 1px solid rgba(168, 85, 247, 0.2);
+          padding: 15px 20px;
+          border-radius: 10px;
+          margin: 20px 0;
+          display: flex;
+          align-items: center;
+        }
+        .footer {
+          margin-top: 40px;
+          text-align: center;
+          font-size: 11px;
+          color: #52525b;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <h1>🐺 OpenAutomation <span class="accent-purple">Alice Updater</span></h1>
+        <p>You have triggered the Git-based direct software updater.</p>
+        
+        <div id="status-container" class="status-box">
+          <div class="spinner"></div>
+          <div>
+            <strong>🔄 Alice Update In Progress...</strong>
+            <div style="font-size:12px; color:#a1a1aa; margin-top:2px;">Pulling latest sources from GitHub, upgrading packages, and rebuilding Vite modules...</div>
+          </div>
+        </div>
+        
+        <h3>Update Output Stream:</h3>
+  `);
+
+  // Force flush headers to browser
+  if (typeof (res as any).flush === "function") {
+    (res as any).flush();
+  }
+
+  const result = await performUpdate();
+
+  if (result.success) {
+    res.write(`
+      <script>
+        document.getElementById("status-container").className = "status-box";
+        document.getElementById("status-container").style.background = "rgba(16, 185, 129, 0.1)";
+        document.getElementById("status-container").style.borderColor = "rgba(16, 185, 129, 0.2)";
+        document.getElementById("status-container").innerHTML = \`
+          <div style="font-size: 24px; margin-right: 15px;">✅</div>
+          <div>
+            <strong class="accent-green">Update Completed Successfully!</strong>
+            <div style="font-size:12px; color:#a1a1aa; margin-top:2px;">Alice has successfully updated to the latest GitHub build. The host is restarting in 1.5s...</div>
+          </div>
+        \`;
+      </script>
+      <h4>Detailed Activity Log:</h4>
+      <pre>${result.log}</pre>
+      </div>
+      <div class="footer">&copy; 2026 OpenAutomation Project. Under the MIT License.</div>
+      </body>
+      </html>
+    `);
+    res.end();
+
+    setTimeout(() => {
+      process.exit(0);
+    }, 1500);
+  } else {
+    res.write(`
+      <script>
+        document.getElementById("status-container").className = "status-box";
+        document.getElementById("status-container").style.background = "rgba(239, 68, 68, 0.1)";
+        document.getElementById("status-container").style.borderColor = "rgba(239, 68, 68, 0.2)";
+        document.getElementById("status-container").innerHTML = \`
+          <div style="font-size: 24px; margin-right: 15px;">❌</div>
+          <div>
+            <strong class="accent-red">Software Update Failed</strong>
+            <div style="font-size:12px; color:#a1a1aa; margin-top:2px;">Check the output console log below to find and solve compilation or network errors. Current server is still active.</div>
+          </div>
+        \`;
+      </script>
+      <h4>Failure Output Log:</h4>
+      <pre>${result.log}</pre>
+      </div>
+      <div class="footer">&copy; 2026 OpenAutomation Project. Under the MIT License.</div>
+      </body>
+      </html>
+    `);
+    res.end();
+  }
 });
 
 // =========================================================================
