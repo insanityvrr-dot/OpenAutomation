@@ -1639,14 +1639,144 @@ class AliceAgent:
 
 
 # Main Entrypoint
+def load_telegram_config():
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    config_paths = [
+        os.path.join(os.getcwd(), "telegram_config.json"),
+        os.path.join(project_root, "telegram_config.json"),
+        "telegram_config.json"
+    ]
+    for path in config_paths:
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    return json.load(f), path
+            except Exception:
+                pass
+    return {"token": "", "chatId": "", "enabled": False}, os.path.join(project_root, "telegram_config.json")
+
+
+def save_telegram_config(config, path):
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2)
+        return True
+    except Exception as e:
+        print(f"Error saving telegram config: {e}")
+        return False
+
+
+def configure_telegram_interactively(cmd_args=None):
+    config, path = load_telegram_config()
+    console.print("\n[bold purple]🐺 Alice Telegram Pilot Setup 🐺[/]")
+    
+    if cmd_args and len(cmd_args) > 0:
+        token = cmd_args[0]
+        chat_id = cmd_args[1] if len(cmd_args) > 1 else ""
+        
+        config['token'] = token
+        if chat_id:
+            config['chatId'] = chat_id
+        config['enabled'] = True
+        
+        if save_telegram_config(config, path):
+            console.print("\n[bold green][✓] Alice Telegram Pilot configured and enabled![/]")
+            masked_token = f"{token[:6]}..." if len(token) > 6 else token
+            console.print(f"• Bot Token: [cyan]{masked_token}[/]")
+            console.print(f"• Chat ID: [cyan]{chat_id or 'Not Set'}[/]")
+            console.print("• Polling Daemon: [bold green]ENABLED & RUNNING[/]\n")
+            console.print("[dim]The background server will immediately begin polling with these settings.[/]\n")
+        else:
+            console.print("\n[bold red][!] Failed to write configuration.[/]\n")
+        return
+
+    console.print("Let's configure your Telegram Bot. No complicated mumble-jumble!\n")
+    
+    current_token = config.get("token") or ""
+    current_chat_id = config.get("chatId") or ""
+    masked_token = f"{current_token[:6]}...{current_token[-4:]}" if len(current_token) > 10 else current_token
+    
+    if current_token:
+        console.print(f"• Current Token: [green]{masked_token}[/]")
+    if current_chat_id:
+        console.print(f"• Current Chat ID: [green]{current_chat_id}[/]\n")
+        
+    token_input = input("🔑 Step 1 - Paste your Telegram Bot Token (or press Enter to keep current): ").strip()
+    if token_input:
+        config['token'] = token_input
+        
+    chat_id_input = input("👤 Step 2 - Enter your Authorized Chat ID (or press Enter to keep current): ").strip()
+    if chat_id_input:
+        config['chatId'] = chat_id_input
+        
+    # Auto-enable on wizard completion - NO more confusing questions!
+    config['enabled'] = True
+    
+    if save_telegram_config(config, path):
+        console.print("\n[bold green][✓] Setup complete! Alice Telegram Bot has been configured & activated.[/]")
+        final_token = config['token']
+        final_masked = f"{final_token[:6]}..." if len(final_token) > 6 else final_token
+        console.print(f"• Token: [cyan]{final_masked}[/]")
+        console.print(f"• Chat ID: [cyan]{config['chatId'] or 'Not Set'}[/]")
+        console.print("• Polling Daemon: [bold green]ENABLED & RUNNING[/]\n")
+        console.print("[dim]Your background Express server will begin polling immediately with these details![/]\n")
+    else:
+        console.print("\n[bold red][!] Failed to write configuration file.[/]\n")
+
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Alice - Local AI Automation Agent with Computer Use")
     parser.add_argument("task", type=str, nargs="*", help="Task for Alice (e.g. 'Open Firefox and star repo')")
     parser.add_argument("--mock", action="store_true", help="Run with local LOONAR V1.0 Engine (default)")
+    parser.add_argument("--autopilot", action="store_true", help="Run in fully autonomous autopilot mode")
+    parser.add_argument("--telegram-token", type=str, help="Set Telegram Bot API token in config")
+    parser.add_argument("--telegram-chat-id", type=str, help="Set Authorized Telegram Chat ID in config")
+    parser.add_argument("--telegram-enable", action="store_true", help="Enable Telegram Bot Polling Daemon")
+    parser.add_argument("--telegram-disable", action="store_true", help="Disable Telegram Bot Polling Daemon")
+    parser.add_argument("--telegram-status", action="store_true", help="Print current Telegram configuration and polling status")
     args = parser.parse_args()
 
-    agent = AliceAgent(use_mock_vlm=args.mock)
+    if (args.telegram_token is not None or 
+        args.telegram_chat_id is not None or 
+        args.telegram_enable or 
+        args.telegram_disable or 
+        args.telegram_status):
+        
+        config, path = load_telegram_config()
+        changed = False
+        if args.telegram_token is not None:
+            config["token"] = args.telegram_token
+            changed = True
+            token_display = f"{args.telegram_token[:6]}..." if len(args.telegram_token) > 6 else args.telegram_token
+            console.print(f"[bold green][✓][/] Telegram Token set to: {token_display}")
+        if args.telegram_chat_id is not None:
+            config["chatId"] = args.telegram_chat_id
+            changed = True
+            console.print(f"[bold green][✓][/] Telegram Chat ID set to: {args.telegram_chat_id}")
+        if args.telegram_enable:
+            config["enabled"] = True
+            changed = True
+            console.print(f"[bold green][✓][/] Telegram Bot polling daemon enabled")
+        elif args.telegram_disable:
+            config["enabled"] = False
+            changed = True
+            console.print(f"[bold green][✓][/] Telegram Bot polling daemon disabled")
+            
+        if changed:
+            save_telegram_config(config, path)
+            console.print(f"[bold green][✓] Configuration saved to: {path}[/]")
+            
+        # Print status
+        masked_token = f"{config.get('token', '')[:6]}..." if len(config.get('token', '')) > 6 else config.get('token', '')
+        console.print("\n[bold purple]🖥️ Current Alice Telegram Configuration 🖥️[/]")
+        console.print(f"• Config Path: {path}")
+        console.print(f"• Bot Token: {masked_token or '<empty>'}")
+        console.print(f"• Authorized Chat ID: {config.get('chatId') or '<empty>'}")
+        console.print(f"• Enabled: {config.get('enabled')}")
+        sys.exit(0)
+
+    agent = AliceAgent(use_mock_vlm=args.mock, autopilot=args.autopilot)
 
     if args.task:
         task_str = " ".join(args.task)
@@ -1661,6 +1791,7 @@ if __name__ == "__main__":
         print_startup_banner()
         console.print("[bold cyan]🐺 Welcome to the Alice Interactive Console! (LOONAR V1.0) 🐺[/]")
         console.print("Type any question, developer command, or desktop automation task.")
+        console.print("Type [bold yellow]'/telegram'[/] to enter the interactive Telegram Setup Wizard.")
         console.print("Type [bold yellow]'exit'[/] or [bold yellow]'quit'[/] to close the session.\n")
         
         try:
@@ -1671,6 +1802,12 @@ if __name__ == "__main__":
                 if prompt.lower() in ["exit", "quit", "q"]:
                     console.print("\n[bold cyan]Goodbye! LOONAR v1.0 offline.[/]")
                     break
+                
+                if prompt.startswith("/telegram") or prompt.lower().startswith("telegram"):
+                    parts = prompt.split()
+                    cmd_args = parts[1:] if len(parts) > 1 else None
+                    configure_telegram_interactively(cmd_args)
+                    continue
                     
                 mode = agent.detect_task_mode(prompt)
                 if mode == "gui_automation":

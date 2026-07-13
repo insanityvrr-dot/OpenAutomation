@@ -26,7 +26,9 @@ import {
   ExternalLink,
   ChevronRight,
   Monitor,
-  Copy
+  Copy,
+  Send,
+  EyeOff
 } from "lucide-react";
 
 // Pre-defined code snippets for the File Inspector
@@ -338,7 +340,7 @@ const SCENARIOS: Scenario[] = [
 ];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"simulator" | "code" | "docs">("simulator");
+  const [activeTab, setActiveTab] = useState<"simulator" | "code" | "docs" | "telegram">("simulator");
   const [selectedScenarioIdx, setSelectedScenarioIdx] = useState(0);
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -348,6 +350,104 @@ export default function App() {
   const [displayServer, setDisplayServer] = useState<"wayland" | "x11">("wayland");
   const [activeModel, setActiveModel] = useState("llava:7b");
   const [isCopied, setIsCopied] = useState<string | null>(null);
+
+  // Telegram Bot integration state variables
+  const [telegramToken, setTelegramToken] = useState("");
+  const [telegramChatId, setTelegramChatId] = useState("");
+  const [telegramEnabled, setTelegramEnabled] = useState(false);
+  const [telegramIsPolling, setTelegramIsPolling] = useState(false);
+  const [telegramLogs, setTelegramLogs] = useState<string[]>([]);
+  const [revealToken, setRevealToken] = useState(false);
+  const [isSavingTelegram, setIsSavingTelegram] = useState(false);
+
+  // Load Telegram configuration on startup
+  useEffect(() => {
+    fetch("/api/telegram/config")
+      .then((res) => res.json())
+      .then((data) => {
+        setTelegramToken(data.token || "");
+        setTelegramChatId(data.chatId || "");
+        setTelegramEnabled(data.enabled || false);
+        setTelegramIsPolling(data.isPolling || false);
+      })
+      .catch((err) => console.error("Error loading Telegram config:", err));
+  }, []);
+
+  // Poll log stream and update polling status when the Telegram tab is selected
+  useEffect(() => {
+    if (activeTab !== "telegram") return;
+
+    const syncLogsAndStatus = () => {
+      fetch("/api/telegram/logs")
+        .then((res) => res.json())
+        .then((data) => {
+          setTelegramLogs(data.logs || []);
+        })
+        .catch((err) => console.error("Error syncing Telegram logs:", err));
+
+      fetch("/api/telegram/config")
+        .then((res) => res.json())
+        .then((data) => {
+          setTelegramEnabled(data.enabled || false);
+          setTelegramIsPolling(data.isPolling || false);
+        })
+        .catch((err) => console.error("Error syncing Telegram status:", err));
+    };
+
+    syncLogsAndStatus();
+    const logInterval = setInterval(syncLogsAndStatus, 3000);
+    return () => clearInterval(logInterval);
+  }, [activeTab]);
+
+  const handleSaveTelegram = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingTelegram(true);
+    try {
+      const res = await fetch("/api/telegram/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: telegramToken,
+          chatId: telegramChatId,
+          enabled: telegramEnabled,
+        }),
+      });
+      const data = await res.json();
+      if (data.status === "success") {
+        setTelegramToken(data.config.token || "");
+        setTelegramChatId(data.config.chatId || "");
+        setTelegramEnabled(data.config.enabled || false);
+        setTelegramIsPolling(data.config.isPolling || false);
+        alert("✨ Alice Telegram Pilot configurations saved successfully!");
+      } else {
+        alert("⚠️ Failed to update configurations.");
+      }
+    } catch (err: any) {
+      alert(`⚠️ Connection error: ${err.message}`);
+    } finally {
+      setIsSavingTelegram(false);
+    }
+  };
+
+  const handleToggleTelegram = async (newState: boolean) => {
+    setTelegramEnabled(newState);
+    try {
+      const res = await fetch("/api/telegram/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: newState,
+        }),
+      });
+      const data = await res.json();
+      if (data.status === "success") {
+        setTelegramEnabled(data.config.enabled || false);
+        setTelegramIsPolling(data.config.isPolling || false);
+      }
+    } catch (err: any) {
+      console.error("Error toggling Telegram polling:", err);
+    }
+  };
 
   // Mouse coordinate simulation states
   const [mousePos, setMousePos] = useState({ x: 500, y: 500 });
@@ -590,6 +690,17 @@ export default function App() {
             Native Code Explorer
           </button>
           <button 
+            onClick={() => setActiveTab("telegram")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === "telegram" 
+                ? "bg-neutral-800 text-white shadow-inner" 
+                : "text-neutral-400 hover:text-white"
+            }`}
+          >
+            <Send className="w-4 h-4" />
+            Telegram Pilot Bot
+          </button>
+          <button 
             onClick={() => setActiveTab("docs")}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               activeTab === "docs" 
@@ -647,11 +758,45 @@ export default function App() {
                     className="bg-neutral-950 border border-neutral-800 text-xs rounded-xl px-3 py-2.5 flex-1 focus:outline-none focus:ring-1 focus:ring-purple-500 text-neutral-200 placeholder-neutral-500"
                   />
                   <button 
-                    onClick={() => {
-                      if (customTask.trim()) {
-                        alert(`✨ Simulated Custom Task: "${customTask}" parsed successfully. Initializing LOONAR visual pipeline.`);
+                    onClick={async () => {
+                      const task = customTask.trim();
+                      if (!task) return;
+
+                      if (task.startsWith("/telegram")) {
+                        const parts = task.split(/\s+/);
+                        const token = parts[1] || "";
+                        const chatId = parts[2] || "";
+
+                        try {
+                          const res = await fetch("/api/telegram/config", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              token: token,
+                              chatId: chatId,
+                              enabled: true
+                            })
+                          });
+                          const data = await res.json();
+                          if (data.status === "success") {
+                            setTelegramToken(data.config.token || "");
+                            setTelegramChatId(data.config.chatId || "");
+                            setTelegramEnabled(data.config.enabled || false);
+                            setTelegramIsPolling(data.config.isPolling || false);
+                            alert(`✨ Telegram Bot linked and polling enabled successfully via command!`);
+                            setActiveTab("telegram");
+                          } else {
+                            alert("⚠️ Failed to update Telegram configuration from command.");
+                          }
+                        } catch (err: any) {
+                          alert(`⚠️ Connection error: ${err.message}`);
+                        }
                         setCustomTask("");
+                        return;
                       }
+
+                      alert(`✨ Simulated Custom Task: "${task}" parsed successfully. Initializing LOONAR visual pipeline.`);
+                      setCustomTask("");
                     }}
                     className="p-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 transition-all border border-neutral-700/50"
                   >
@@ -1300,6 +1445,194 @@ export default function App() {
               <ShieldCheck className="w-5 h-5 text-purple-400 shrink-0 mt-0.5" />
               <div>
                 <strong className="text-neutral-200 font-semibold">Offline Execution Confirmed:</strong> All actions, visual coordinates mapping, and inputs are processed locally on your machine buffer. No external network data leakage happens.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB CONTENT: Telegram Pilot Bot */}
+        {activeTab === "telegram" && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start flex-1 mb-8 animate-fade-in">
+            {/* Left form config */}
+            <div className="lg:col-span-5 flex flex-col gap-5">
+              <div className="bg-neutral-900/60 border border-neutral-800 p-6 rounded-3xl backdrop-blur-md">
+                <div className="flex items-center justify-between border-b border-neutral-800 pb-4 mb-5">
+                  <div>
+                    <h2 className="text-base font-bold text-white flex items-center gap-2">
+                      <Send className="w-5 h-5 text-purple-400" />
+                      Configure Telegram Link
+                    </h2>
+                    <p className="text-xs text-neutral-400 mt-1">Manage remote-control tokens and permissions.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${telegramIsPolling ? "bg-emerald-500 animate-pulse" : "bg-neutral-700"}`} />
+                    <span className="text-xs text-neutral-300 font-semibold">{telegramIsPolling ? "Polling" : "Idle"}</span>
+                  </div>
+                </div>
+
+                <form onSubmit={handleSaveTelegram} className="flex flex-col gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-300 mb-1.5 flex justify-between">
+                      <span>Telegram Bot Token</span>
+                      <button 
+                        type="button" 
+                        onClick={() => setRevealToken(!revealToken)}
+                        className="text-[10px] text-purple-400 hover:text-purple-300 font-medium"
+                      >
+                        {revealToken ? "Mask Token" : "Reveal Token"}
+                      </button>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={revealToken ? "text" : "password"}
+                        placeholder="e.g. 1234567890:ABCdefGhIJK_lmN"
+                        value={telegramToken}
+                        onChange={(e) => setTelegramToken(e.target.value)}
+                        className="w-full bg-neutral-950 border border-neutral-800 text-xs rounded-xl pl-3 pr-10 py-3 focus:outline-none focus:ring-1 focus:ring-purple-500 text-neutral-200 placeholder-neutral-600 font-mono"
+                      />
+                      <div className="absolute right-3 top-3.5 text-neutral-500">
+                        <Lock className="w-4 h-4" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                      Authorized Chat ID
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 987654321"
+                      value={telegramChatId}
+                      onChange={(e) => setTelegramChatId(e.target.value)}
+                      className="w-full bg-neutral-950 border border-neutral-800 text-xs rounded-xl px-3 py-3 focus:outline-none focus:ring-1 focus:ring-purple-500 text-neutral-200 placeholder-neutral-600 font-mono"
+                    />
+                    <p className="text-[10px] text-neutral-500 mt-1 leading-relaxed">
+                      Only messages originating from this unique Telegram chat identifier will be executed on the host, preventing public access.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between bg-neutral-950/60 p-3.5 rounded-xl border border-neutral-850 mt-2">
+                    <div className="flex flex-col">
+                      <span className="text-xs font-semibold text-neutral-200">Active Polling Client</span>
+                      <span className="text-[10px] text-neutral-500 mt-0.5">Toggle daemon thread loop</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleTelegram(!telegramEnabled)}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        telegramEnabled ? "bg-purple-600" : "bg-neutral-800"
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          telegramEnabled ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSavingTelegram}
+                    className="w-full mt-2 bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 active:scale-98 disabled:opacity-50"
+                  >
+                    {isSavingTelegram ? "Saving Settings..." : "Save Settings & Update"}
+                  </button>
+                </form>
+              </div>
+
+              {/* Status card */}
+              <div className="bg-neutral-900/60 border border-neutral-800 p-5 rounded-3xl backdrop-blur-md flex flex-col gap-3">
+                <h3 className="text-xs font-bold text-neutral-300 uppercase tracking-wider">Connection Integrity Checks</h3>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-850">
+                    <span className="text-neutral-500 block mb-1">Port Bind</span>
+                    <strong className="text-white font-mono">3000 (Proxy)</strong>
+                  </div>
+                  <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-850">
+                    <span className="text-neutral-500 block mb-1">Daemon Status</span>
+                    <strong className={telegramIsPolling ? "text-emerald-400" : "text-neutral-400"}>
+                      {telegramIsPolling ? "Polling" : "Offline"}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right log & instructions panel */}
+            <div className="lg:col-span-7 flex flex-col gap-5">
+              {/* Instructions card */}
+              <div className="bg-neutral-900/60 border border-neutral-800 p-6 rounded-3xl backdrop-blur-md">
+                <h2 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                  <Cpu className="w-4.5 h-4.5 text-purple-400" />
+                  How to setup Alice Remote Bot
+                </h2>
+                
+                <div className="flex flex-col gap-3.5 text-xs text-neutral-300">
+                  <div className="flex gap-3">
+                    <div className="w-5.5 h-5.5 rounded-full bg-purple-950 text-purple-300 font-bold flex items-center justify-center text-[10px] border border-purple-800/40 shrink-0">1</div>
+                    <div>
+                      <p className="font-semibold text-neutral-200">Generate Telegram Bot</p>
+                      <p className="text-neutral-400 mt-0.5">Search for <strong className="text-white">@BotFather</strong> on Telegram, type <code className="bg-neutral-950 px-1 py-0.5 rounded text-purple-400 font-mono text-[11px]">/newbot</code>, follow prompts, and copy the HTTP API Token.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <div className="w-5.5 h-5.5 rounded-full bg-purple-950 text-purple-300 font-bold flex items-center justify-center text-[10px] border border-purple-800/40 shrink-0">2</div>
+                    <div>
+                      <p className="font-semibold text-neutral-200">Find your Chat ID</p>
+                      <p className="text-neutral-400 mt-0.5">Search for <strong className="text-white">@userinfobot</strong> on Telegram and send any message to it to instantly fetch your unique numerical Chat ID.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <div className="w-5.5 h-5.5 rounded-full bg-purple-950 text-purple-300 font-bold flex items-center justify-center text-[10px] border border-purple-800/40 shrink-0">3</div>
+                    <div>
+                      <p className="font-semibold text-neutral-200">Activate Link</p>
+                      <p className="text-neutral-400 mt-0.5">Paste the credentials on the left, check the Active toggle, and save! Now open your bot chat and send <code className="bg-neutral-950 px-1 py-0.5 rounded text-purple-400 font-mono text-[11px]">/start</code> to verify.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Polling Activity Log Terminal */}
+              <div className="bg-neutral-900/60 border border-neutral-800 p-6 rounded-3xl backdrop-blur-md flex flex-col gap-3 flex-1 min-h-[300px]">
+                <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+                  <h3 className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Terminal className="w-4 h-4 text-emerald-400" />
+                    Telegram Activity Logs Stream
+                  </h3>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      fetch("/api/telegram/logs")
+                        .then(res => res.json())
+                        .then(data => setTelegramLogs(data.logs || []));
+                    }}
+                    className="text-[10px] text-neutral-400 hover:text-white hover:underline animate-pulse"
+                  >
+                    Refresh Logs
+                  </button>
+                </div>
+
+                <div className="flex-1 bg-neutral-950 rounded-2xl border border-neutral-850 p-4 font-mono text-[11px] text-neutral-300 overflow-y-auto max-h-[300px] flex flex-col gap-1.5 select-text">
+                  {telegramLogs.length === 0 ? (
+                    <div className="text-neutral-500 italic text-center py-10">
+                      Standby. Logs will stream in real-time when the Telegram Pilot client is polling.
+                    </div>
+                  ) : (
+                    telegramLogs.map((log, index) => (
+                      <div key={index} className="leading-relaxed border-b border-neutral-900/45 pb-1">
+                        {log}
+                      </div>
+                    ))
+                  )}
+                  <div className="flex items-center gap-1 text-purple-500 animate-pulse mt-1 font-bold">
+                    <span>❯</span>
+                    <span className="w-1.5 h-3.5 bg-purple-500 inline-block animate-pulse" />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
