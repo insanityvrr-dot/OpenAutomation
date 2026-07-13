@@ -82,11 +82,20 @@ LOONAR V1.0 is engineered for high autonomy and low-latency offline execution:
 Alice has a robust launcher wrapper that coordinates packages automatically.
 
 ### Step 1: Clone and Install
-Clone this repository to your Linux desktop and execute the installer:
 
+Choose the option that matches your current terminal directory:
+
+#### Option A: If you are already inside the `~/OpenAutomation` folder in your terminal:
+```bash
+cd alice
+chmod +x install.sh
+./install.sh
+```
+
+#### Option B: If cloning from scratch on a new machine:
 ```bash
 git clone https://github.com/insanityvrr-dot/OpenAutomation.git
-cd OpenAutomation
+cd OpenAutomation/alice
 chmod +x install.sh
 ./install.sh
 ```
