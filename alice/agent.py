@@ -21,6 +21,7 @@ import re
 import base64
 import json
 import shutil
+import platform
 from io import BytesIO
 
 # Import local computer_use driver
@@ -1504,7 +1505,7 @@ class AliceAgent:
         # 4. STANDARD FALLBACK COGNITIVE DEV & CHAT ASSISTANT
         # =========================================================================
         else:
-            return f"""
+            fallback_template = """
             <thought>The user typed: "{prompt}". I will reply with a deeply descriptive, conversational, and highly detailed assistant answer that shows my coding and language prowess.</thought>
             I have analyzed your prompt: **"{prompt}"** with the local LOONAR V1.0 Expert Reasoning system.
 
@@ -1555,6 +1556,7 @@ class AliceAgent:
 
             <execute_command>chmod +x loonar_system_monitor.py && ./loonar_system_monitor.py</execute_command>
             """
+            return fallback_template.replace("{prompt}", prompt)
 
     def run_agent_loop(self, task_description: str):
         """Orchestrates the active computer use navigation agent loop."""
