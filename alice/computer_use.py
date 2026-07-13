@@ -22,9 +22,10 @@ import shutil
 try:
     import pyautogui
     from PIL import Image
-except ImportError:
-    print("[!] Missing required python libraries: pyautogui, Pillow.")
-    print("    Please run 'pip install pyautogui Pillow' or use 'install.sh'.")
+except Exception as e:
+    print(f"[!] Warning: GUI framework initialization failed ({e}).")
+    print("    This is common in environments without X11/DISPLAY active (e.g., headless, SSH, or Wayland).")
+    print("    Alice will fallback to developer-only CLI console capabilities.")
     pyautogui = None
     Image = None
 
