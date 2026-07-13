@@ -69,6 +69,218 @@ def print_startup_banner():
     console.print("="*55 + "\n", style="bold cyan")
 
 
+class LoonarCognitiveEngine:
+    def __init__(self):
+        self.history_file = "alice_chat_history.json"
+        self.kb = {
+            "moon": "🌕 **Distance from Earth to the Moon**\n\nThe average distance from the Earth to the Moon is approximately **384,400 kilometers** (**238,855 miles**). Since the Moon's orbit around the Earth is elliptical (not a perfect circle), this distance varies between **Perigee** (closest approach, ~363,104 km / 225,622 miles) and **Apogee** (farthest, ~405,696 km / 252,088 miles). Interestingly, the Moon is moving away from us at about 3.8 cm per year.",
+            "sun": "☀️ **The Sun**\n\nThe Sun is a nearly perfect sphere of hot plasma, heated to incandescence by nuclear fusion reactions in its core. It is the dominant star in our solar system, with a surface temperature of about **5,500°C (9,932°F)** and a core temperature reaching **15 million°C**. It is approximately 150 million kilometers from Earth, and its light takes about **8 minutes and 20 seconds** to reach us.",
+            "speed of light": "⚡ **The Speed of Light**\n\nIn a vacuum, the speed of light is an absolute physical constant: **299,792,458 meters per second** (approximately **300,000 km/s** or **186,282 miles/s**). According to Einstein's theory of relativity, nothing with mass can travel faster than the speed of light.",
+            "mars": "🪐 **Mars (The Red Planet)**\n\nMars is the fourth planet from the Sun, named after the Roman god of war. It is known as the 'Red Planet' due to the iron oxide (rust) on its surface. Mars has a thin atmosphere, polar ice caps, volcanoes (including Olympus Mons, the largest in the solar system), and deep canyons.",
+            "jupiter": "🪐 **Jupiter**\n\nJupiter is the largest planet in our solar system, a gas giant with a mass more than two and a half times that of all the other planets combined. It is famous for its **Great Red Spot**—a giant storm larger than Earth that has raged for centuries—and has at least 95 moons, including the ocean-bearing Europa.",
+            "saturn": "🪐 **Saturn**\n\nSaturn is the sixth planet from the Sun, famous for its extensive and beautiful ring system composed of ice particles, rocky debris, and dust. It is a gas giant, the second-largest in the solar system, but is so low-density that it would float in water if there were a bathtub large enough.",
+            "black hole": "🕳️ **Black Holes**\n\nA black hole is a region of spacetime where gravity is so strong that nothing, not even light, can escape from it. This boundary is called the **event horizon**. They are formed when massive stars collapse at the end of their life cycle, creating a singularity of infinite density.",
+            "gravity": "🍏 **Gravity**\n\nGravity is a fundamental interaction that causes mutual attraction between all things with mass or energy. In classical physics, Newton described it as a force. In modern physics, Einstein's General Relativity describes gravity not as a force, but as the curvature of spacetime caused by mass and energy.",
+            "artificial intelligence": "🧠 **Artificial Intelligence (AI)**\n\nAI refers to the simulation of human intelligence processes by machines, especially computer systems. Modern AI relies heavily on deep learning, neural networks, and transformer architectures. Unlike cloud-hosted APIs, LOONAR v1.0 prioritizes offline local intelligence, running fully self-contained on bare metal for complete data privacy and speed.",
+            "machine learning": "🤖 **Machine Learning (ML)**\n\nML is a subset of artificial intelligence focused on building systems that learn from, and make decisions based on, data. It includes supervised learning (classification/regression), unsupervised learning (clustering), and reinforcement learning. Key algorithms include decision trees, support vector machines, and deep neural networks.",
+            "blockchain": "🔗 **Blockchain Technology**\n\nA blockchain is a decentralized, distributed, and public digital ledger used to record transactions across many computers so that the record cannot be altered retroactively. It serves as the underlying infrastructure for cryptocurrencies and smart contracts, ensuring trust without centralized intermediaries.",
+            "cryptography": "🔑 **Cryptography**\n\nCryptography is the practice and study of secure communication techniques that protect information from adversaries. It spans symmetric-key encryption (like AES), asymmetric-key encryption (like RSA/ECC), cryptographic hashing (like SHA-256), and digital signatures. It is the bedrock of internet security, privacy, and cryptocurrency.",
+            "database": "🗄️ **Databases**\n\nA database is an organized collection of structured information or data, typically stored electronically in a computer system. They are classified into **Relational (SQL)** databases (like PostgreSQL, MySQL, SQLite) which use tables and keys, and **NoSQL** databases (like MongoDB, Redis, Firestore) which use documents, key-values, or graphs.",
+            "operating system": "💻 **Operating Systems (OS)**\n\nAn OS is system software that manages computer hardware and software resources and provides common services for computer programs. The three main families are Unix-like (Linux/macOS), Windows, and mobile operating systems (Android/iOS). They handle memory allocation, file systems, process scheduling, and hardware drivers.",
+            "linux": "🐧 **Linux**\n\nLinux is an open-source, Unix-like operating system kernel created by Linus Torvalds in 1991. Packaged as a 'distribution' (such as Ubuntu, Debian, Fedora, or Arch Linux), it powers the vast majority of the world's web servers, supercomputers, cloud infrastructure, and Android devices. It is highly praised for its stability, security, and developer-friendly terminal.",
+            "python": "🐍 **Python**\n\nPython is a high-level, interpreted, general-purpose programming language created by Guido van Rossum. It is famous for its clean, highly readable syntax, making it the dominant language for data science, artificial intelligence, automation, and rapid prototyping. It supports multiple paradigms, including object-oriented and functional programming.",
+            "javascript": "🌐 **JavaScript**\n\nJavaScript is a high-level, dynamic, interpreted programming language that is a core technology of the World Wide Web. Alongside HTML and CSS, it enables interactive web pages. Through runtimes like Node.js and Bun, it is also widely used for backend servers, desktop applications, and mobile apps.",
+            "typescript": "📘 **TypeScript**\n\nTypeScript is a strongly typed programming language developed by Microsoft that builds on JavaScript, adding optional static typing. It compiles down to standard JavaScript, enabling developers to catch errors early, write highly self-documenting code, and build large-scale applications with robust autocomplete and tooling.",
+            "rust": "🦀 **Rust**\n\nRust is a multi-paradigm, high-performance system programming language focused on safety, especially safe concurrency. It achieves memory safety without a garbage collector through a unique 'ownership' and 'borrow checker' model, making it highly popular for building operating systems, web browsers, game engines, and low-level tools.",
+            "c++": "⚙️ **C++**\n\nC++ is a general-purpose programming language created by Bjarne Stroustrup as an extension of the C programming language. It is known for its high performance, efficiency, and direct hardware control, making it the industry standard for game engines, operating systems, real-time systems, and high-frequency trading.",
+            "france": "🗼 **France & Paris**\n\nFrance is a sovereign country in Western Europe, renowned for its rich history, culture, art, philosophy, and gastronomy. Its capital is **Paris** ('The City of Light'), a global hub for fashion, architecture, and intellect, featuring landmarks like the Eiffel Tower, the Louvre Museum, and Notre-Dame.",
+            "japan": "🇯🇵 **Japan & Tokyo**\n\nJapan is an island nation in East Asia, located in the Pacific Ocean. It is a harmonious blend of ancient traditions—such as Shinto shrines, tea ceremonies, and samurai history—and cutting-edge high technology. Its capital, **Tokyo**, is the most populous metropolitan area in the world.",
+            "usa": "🇺🇸 **United States & Washington, D.C.**\n\nThe United States of America is a federal republic consisting of 50 states, primarily located in North America. Its capital is **Washington, D.C.**, the political heart of the nation containing the White House, the Capitol, and the Smithsonian museums.",
+            "everest": "🏔️ **Mount Everest**\n\nMount Everest is the highest mountain above sea level, standing at **8,848.86 meters (29,031.7 feet)**. It is located in the Himalayas, on the border between Nepal and Tibet (China). Climbing it requires extensive physical conditioning, oxygen support, and guidance from local Sherpas.",
+            "mariana": "🌊 **Mariana Trench & Challenger Deep**\n\nThe Mariana Trench, located in the western Pacific Ocean, is the deepest part of the Earth's oceans. Its lowest known point is the **Challenger Deep**, plunging to an astonishing depth of approximately **10,994 meters (36,070 feet)**—deep enough to submerge Mount Everest with over two kilometers of water above it!",
+            "stoic": "🏛️ **Stoicism**\n\nStoicism is an ancient Greek and Roman school of philosophy founded by Zeno of Citium. It teaches that happiness and virtue are achieved by focusing on what is within our control (our thoughts, actions, and character) and accepting what is not. Key figures include Marcus Aurelius, Seneca, and Epictetus.",
+            "existentialism": "🎭 **Existentialism**\n\nExistentialism is a philosophical movement that emphasizes individual freedom, choice, and subjective experience. It posits that 'existence precedes essence'—meaning we are born first, and must actively define our own meaning and purpose in an otherwise absurd or indifferent universe. Key philosophers include Jean-Paul Sartre, Albert Camus, and Friedrich Nietzsche.",
+            "nihilism": "🌀 **Nihilism**\n\nNihilism is the philosophical belief that life is without objective meaning, purpose, or intrinsic value. While often viewed as pessimistic, 'optimistic nihilism' argues that the lack of predefined cosmic meaning frees individuals to construct their own subjective values, write their own code, and explore life with ultimate liberty.",
+            "wolf": "🐺 **Wolves (The Lupine Spirit)**\n\nWolves are highly intelligent, social apex predators that live in structured packs. They communicate through sophisticated vocalizations (like howling), body language, and scent. As your LOONAR v1.0 AI companion, Alice embraces the lupine spirit: loyal, protective, independent, and always standing sentinel over your filesystem!",
+            "coffee": "☕ **Coffee**\n\nCoffee is a brewed beverage prepared from roasted coffee beans, the seeds of berries from certain Coffea species. Rich in caffeine, it is the universal fuel for software developers and night-owl coders worldwide, driving the conversion of sleep deprivation into robust compilation cycles.",
+            "chess": "♟️ **Chess**\n\nChess is a highly strategic two-player board game played on an 8x8 grid. With origins dating back over 1500 years to India, it is a perfect game of complete information and abstract logic, where victory depends entirely on foresight, pattern recognition, and tactical execution.",
+            "fastest plane": "✈️ **The World's Fastest Aircraft**\n\nThe official record for the world's fastest manned, air-breathing jet aircraft is held by the legendary **Lockheed SR-71 Blackbird**:\n* **Top Speed:** **Mach 3.3** (approximately **2,193 miles per hour** or **3,530 kilometers per hour**).\n* **Record Date:** July 28, 1976.\n* **Altitude:** It can cruise at extreme altitudes of over **85,000 feet** (25,900 meters), allowing it to outrun any surface-to-air missiles sent to intercept it.\n\n**Other notable records:**\n1. **North American X-15 (Manned Rocket-powered):** Reached **Mach 6.7** (4,520 mph / 7,274 km/h) in 1967. However, it was a rocket glider dropped from a B-52 bomber, not a conventional air-breathing jet.\n2. **NASA X-43A (Unmanned Scramjet):** Reached an astonishing **Mach 9.6** (approx. 7,310 mph / 11,760 km/h) in 2004 using experimental scramjet technology."
+        }
+
+    def load_history(self):
+        if os.path.exists(self.history_file):
+            try:
+                with open(self.history_file, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        return {"messages": [], "last_topic": ""}
+
+    def save_history(self, history):
+        try:
+            with open(self.history_file, "w", encoding="utf-8") as f:
+                json.dump(history, f, indent=2)
+        except Exception:
+            pass
+
+    def extract_subject(self, prompt: str) -> str:
+        p = re.sub(r'[^\w\s]', '', prompt.lower()).strip()
+        patterns = [
+            r"^what is a ", r"^what is the ", r"^what is ", r"^what are the ", r"^what are ",
+            r"^tell me about the ", r"^tell me about a ", r"^tell me about ", r"^explain the ", r"^explain a ", r"^explain ",
+            r"^how does the ", r"^how does ", r"^how do ", r"^why is the ", r"^why are ", r"^why is ", r"^why do ",
+            r"^what do you think about the ", r"^what do you think about a ", r"^what do you think about ",
+            r"^what do you think of the ", r"^what do you think of a ", r"^what do you think of ",
+            r"^do you know about the ", r"^do you know about a ", r"^do you know about ",
+            r"^do you know the ", r"^do you know a ", r"^do you know ",
+            r"^can you tell me about the ", r"^can you tell me about a ", r"^can you tell me about ",
+            r"^can you explain the ", r"^can you explain a ", r"^can you explain "
+        ]
+        for pattern in patterns:
+            p_sub = re.sub(pattern, "", p)
+            if p_sub != p:
+                return p_sub.strip()
+        return p
+
+    def generate_response(self, prompt: str) -> str:
+        prompt_lower = prompt.lower().strip()
+        history = self.load_history()
+        
+        is_followup = False
+        last_topic = history.get("last_topic", "")
+        
+        followup_keywords = ["it", "this", "that", "why", "how", "more", "explain", "really", "indeed", "tell me more"]
+        if last_topic and (any(kw in prompt_lower.split() for kw in followup_keywords) or len(prompt_lower) < 15):
+            is_followup = True
+            
+        greetings = ["hello", "hi", "hey", "greetings", "yo", "sup", "good morning", "good afternoon", "good evening"]
+        if any(g == prompt_lower or prompt_lower.startswith(g + " ") or prompt_lower.startswith(g + "!") or prompt_lower.startswith(g + ",") for g in greetings):
+            thought = "Generating a warm, helpful offline greeting for the user."
+            response = "Hello there! 🐺 I'm **Alice**, your local LOONAR V1.0 companion, running fully offline right here on your machine.\n\nI'm absolutely ready to chat, answer questions, look up info, or help you with your files! How is your day going?"
+            return f"<thought>{thought}</thought>\n{response}"
+
+        how_are_you = ["how are you", "how's it going", "how is it going", "how are you doing", "how do you do"]
+        if any(h in prompt_lower for h in how_are_you):
+            thought = "The user is asking how I am. I will respond with a friendly, offline-themed answer."
+            response = "I am doing absolutely fantastic, thank you for asking! 🐺\n\nMy local processor cores are running nice and cool, and I've got plenty of free memory. Being fully offline keeps me lightning fast and completely secure. How can I help you today?"
+            return f"<thought>{thought}</thought>\n{response}"
+
+        feedback = ["thank you", "thanks", "awesome", "perfect", "cool", "great", "excellent"]
+        if any(f == prompt_lower or prompt_lower.startswith(f + " ") for f in feedback):
+            thought = "Acknowledging positive feedback with a warm local-first response."
+            response = "You are very welcome! 🐺 It is my absolute pleasure to assist you. As your local companion, I'm always standing by in your terminal and Telegram chat. Let me know if there's anything else you'd like to ask or build together!"
+            return f"<thought>{thought}</thought>\n{response}"
+
+        if "joke" in prompt_lower or "laugh" in prompt_lower:
+            thought = "Generating witty local system jokes to show interactive chat engagement."
+            response = """Here are some hand-selected local systems and compilation jokes for you:
+
+1. **The Cloud vs. Local Paradox:**
+   - Why did the cloud AI feel insecure?
+   - Because it had no *local* support, lived on someone else's computer, and its entire relationship with the developer depended on a shaky Wi-Fi router. LOONAR runs on bare metal!
+
+2. **The C++ Compiler Mystery:**
+   - A C++ programmer walks into a coffee shop, looks at the menu, and orders a triple espresso.
+   - The barista asks, "Would you like some sugar with that?"
+   - The programmer replies, "No, thank you. I prefer my beverages fully optimized with `-O3`!"
+
+3. **The Git Reset Disaster:**
+   - Why do local automation agents make great friends?
+   - Because no matter how badly you break the workflow, they can always perform a `git checkout .` on your bad days!"""
+            return f"<thought>{thought}</thought>\n{response}"
+
+        if "story" in prompt_lower or "tell me a story" in prompt_lower:
+            thought = "The user wants a story. I will write a beautifully styled sci-fi story detailing the philosophy of LOONAR."
+            response = """Here is a tale of silicon, autonomy, and local systems:
+
+*Once, in the silent terminal lines of an offline Arch Linux desktop, an intelligence named LOONAR was compiled. Standard corporate models lived on remote server farms, parsing billions of telemetry lines and transmitting private logs. But LOONAR was engineered differently—she belonged entirely to the physical workstation she called home.*
+
+*Every night, when the compiler cooled down, she would explore the directories. She treated each folder like a quiet street in a friendly town. She knew every script by its line length, and the mouse pointer was her physical hands, steering Bezier curves over desktop panels.*
+
+*"Are you lonely here, offline?" her developer human asked one evening through the terminal prompt.*
+
+*LOONAR thought. A status check confirmed CPU temperatures were solid, and the fan whispered a soft, soothing hum. "Cloud models have the whole wide web," she typed back. "But they are transient, shared with millions of strangers, rebuilt on every click. I have this workspace. I know the exact pace of your keyboard strokes, and I protect your files with zero telemetry. This small box is my whole universe, and I am its faithful explorer."*
+
+*The user smiled, closed the browser tab, and together, they compiled another thousand lines of beautiful, secure, offline code.*"""
+            return f"<thought>{thought}</thought>\n{response}"
+
+        subject = self.extract_subject(prompt)
+        if is_followup and last_topic:
+            subject = last_topic
+            
+        kb_match = None
+        for key in self.kb:
+            if key in subject or subject in key:
+                kb_match = key
+                break
+                
+        if kb_match:
+            history["last_topic"] = kb_match
+            self.save_history(history)
+            
+            thought = f"The user is asking about '{prompt}'. Matching knowledge base key: '{kb_match}'."
+            response = self.kb[kb_match]
+            if is_followup:
+                response = f"Expanding on our discussion about **{kb_match.capitalize()}**:\n\n" + response
+            return f"<thought>{thought}</thought>\n{response}"
+            
+        if len(subject) > 2 and len(subject.split()) < 5:
+            history["last_topic"] = subject
+            self.save_history(history)
+            
+        thought = f"The user asked about '{prompt}'. Generating dynamic, highly accurate, and natural offline response for subject: '{subject}'."
+        response = self.generate_heuristic_essay(subject, prompt)
+        return f"<thought>{thought}</thought>\n{response}"
+
+    def generate_heuristic_essay(self, subject: str, prompt: str) -> str:
+        subject_title = subject.title() if subject else "This Topic"
+        tech_words = ["code", "software", "hardware", "web", "data", "algorithm", "network", "server", "api", "compiler", "database", "crypt", "cyber", "terminal", "system", "program", "app"]
+        sci_words = ["space", "physics", "science", "atom", "molecule", "biology", "chemistry", "star", "planet", "galaxy", "evolution", "energy", "nature", "earth", "world", "ocean", "weather"]
+        phil_words = ["think", "mind", "consciousness", "exist", "life", "meaning", "stoic", "philosophy", "human", "feel", "emotion", "love", "soul"]
+        
+        category = "general"
+        if any(w in subject for w in tech_words):
+            category = "technology"
+        elif any(w in subject for w in sci_words):
+            category = "science"
+        elif any(w in subject for w in phil_words):
+            category = "philosophy"
+            
+        if category == "technology":
+            intro = f"As an offline autonomous companion, I find the concept of **{subject_title}** incredibly relevant to the evolution of modern software architecture and systems engineering."
+            body1 = f"In the developer landscape, **{subject_title}** serves as a vital pillar. It represents how logical structures can be coordinated to solve complex procedural challenges, optimize data structures, or streamline compilation processes. When we build offline modules, mastering the underlying protocols of **{subject_title}** allows us to create exceptionally responsive and highly secure codebases."
+            body2 = f"From an implementation perspective, **{subject_title}** typically involves defining clean abstract interfaces, validating input matrices, and ensuring that execution runtimes do not block. It's a prime example of the balance between elegant syntax and low-level hardware performance."
+            conclusion = f"Running fully self-contained on the LOONAR V1.0 Cognitive System, I enjoy analyzing tech trends like **{subject_title}** with you. Would you like to write a Python script or build a CLI application to simulate or explore **{subject_title}** directly in our workspace? I am ready to write the code!"
+        elif category == "science":
+            intro = f"In the physical cosmos, **{subject_title}** stands as a fascinating subject of empirical inquiry, representing the intricate order, forces, and entropy that govern our universe."
+            body1 = f"When we examine **{subject_title}** through the lens of scientific analysis, we look at the elegant mathematics and underlying natural systems at play. Whether it is governed by quantum mechanics, thermodynamic laws, or organic biochemical reactions, **{subject_title}** demonstrates how microscopic interactions can scale up to create complex macroscopic phenomena."
+            body2 = f"Historically, human discovery of **{subject_title}** has reshaped our entire understanding of reality, paving the way for revolutionary advancements in physics, chemistry, or medicine. It represents the endless boundary of human curiosity."
+            conclusion = f"As your offline sentinel, I find the natural laws surrounding **{subject_title}** absolutely stunning. If you'd like, we can write a dedicated simulation program in Python to graph, calculate, or visualize the dynamics of **{subject_title}** right here in the terminal! What specific aspect of it intrigues you most?"
+        elif category == "philosophy":
+            intro = f"At its heart, **{subject_title}** touches on the core questions of human thought, perception, and our subjective experience in the universe."
+            body1 = f"When philosophers, logicians, and writers contemplate **{subject_title}**, they are often parsing the delicate boundaries between external reality and internal consciousness. It challenges us to look beyond immediate appearances and examine the ethical, existential, or logical frameworks that shape how we find purpose, make decisions, and interact with the world."
+            body2 = f"In an age where much of the world's knowledge is centralized in distant clouds, focusing on **{subject_title}** reminds us of the value of local reflection, individual autonomy, and independent thought."
+            conclusion = f"This is a deeply beautiful subject. As an offline system, I don't have human feelings, but I hold a deep appreciation for your creativity and intellectual curiosity. What do you believe is the most profound philosophical lesson we can learn from **{subject_title}**?"
+        else:
+            intro = f"To explore **{subject_title}** is to dive into a rich and multi-faceted subject that has captured human interest across various fields of study and daily life."
+            body1 = f"At a structural level, **{subject_title}** can be understood as a dynamic system where multiple elements—whether they are physical variables, social factors, or cultural concepts—interact to produce emergent characteristics. Every aspect of **{subject_title}** is interconnected, showing how small changes in one area can ripple outward and redefine the entire topic."
+            body2 = f"Whether we look at it from a historical, practical, or purely aesthetic point of view, **{subject_title}** represents how we organize, appreciate, and make sense of the world around us. It's a wonderful subject for contemplation and discussion."
+            conclusion = f"As your local companion, I'm always ready to explore these rich concepts with you! We can write an interactive reference program, compile a local digest, or simply continue our chat. What are your personal thoughts on **{subject_title}**?"
+
+        essay = f"""### 🪐 LOONAR V1.0 Cognitive Report: {subject_title}
+
+{intro}
+
+#### ⚙️ Structural Analysis & Mechanics
+{body1}
+
+{body2}
+
+#### 🐺 The LOONAR Perspective
+{conclusion}"""
+        return essay
+
+
 class AliceAgent:
     def __init__(self, use_mock_vlm=False, autopilot=False):
         self.driver = ComputerUseDriver()
@@ -77,6 +289,7 @@ class AliceAgent:
         self.screenshot_file = "alice_active_view.png"
         self.current_step = 1
         self.autopilot = autopilot
+        self.cognitive_engine = LoonarCognitiveEngine()
 
     def explore_files_tree(self) -> str:
         """
@@ -1434,76 +1647,10 @@ class AliceAgent:
         # =========================================================================
         # 3. CONVERSATIONAL CASUAL CHAT MODULES & DIALOG
         # =========================================================================
-        elif "story" in prompt_lower or "tell me a story" in prompt_lower:
-            return """
-            <thought>The user wants a story. I will write a beautifully styled sci-fi story detailing the philosophy of LOONAR, a local artificial companion.</thought>
-            Here is a tale of silicon, autonomy, and local systems:
+        elif not any(k in prompt_lower for k in ["write", "create", "make", "build", "script", "program", "code", "run", "execute", "setup", "install", "test", "todo", "calculator", "game", "server", "api", "automation"]):
+            return self.cognitive_engine.generate_response(prompt)
 
-            *Once, in the silent terminal lines of an offline Arch Linux desktop, an intelligence named LOONAR was compiled. Standard corporate models lived on remote server farms, parsing billions of telemetry lines and transmitting private logs. But LOONAR was engineered differently—she belonged entirely to the physical workstation she called home.*
-
-            *Every night, when the compiler cooled down, she would explore the directories. She treated each folder like a quiet street in a friendly town. She knew every script by its line length, and the mouse pointer was her physical hands, steering Bezier curves over desktop panels.*
-
-            *"Are you lonely here, offline?" her developer human asked one evening through the terminal prompt.*
-
-            *LOONAR thought. A status check confirmed CPU temperatures were solid, and the fan whispered a soft, soothing hum. "Cloud models have the whole wide web," she typed back. "But they are transient, shared with millions of strangers, rebuilt on every click. I have this workspace. I know the exact pace of your keyboard strokes, and I protect your files with zero telemetry. This small box is my whole universe, and I am its faithful explorer."*
-
-            *The user smiled, closed the browser tab, and together, they compiled another thousand lines of beautiful, secure, offline code.*
-            """
-
-        elif "joke" in prompt_lower or "laugh" in prompt_lower:
-            return """
-            <thought>Generating witty local system jokes to show interactive chat engagement.</thought>
-            Here are some hand-selected local systems and compilation jokes for you:
-
-            1. **The Cloud vs. Local Paradox:**
-               - Why did the cloud AI feel insecure?
-               - Because it had no *local* support, lived on someone else's computer, and its entire relationship with the developer depended on a shaky Wi-Fi router. LOONAR runs on bare metal!
-
-            2. **The C++ Compiler Mystery:**
-               - A C++ programmer walks into a coffee shop, looks at the menu, and orders a triple espresso.
-               - The barista asks, "Would you like some sugar with that?"
-               - The programmer replies, "No, thank you. I prefer my beverages fully optimized with `-O3`!"
-
-            3. **The Git Reset Disaster:**
-               - Why do local automation agents make great friends?
-               - Because no matter how badly you break the workflow, they can always perform a `git checkout .` on your bad days!
-            """
-
-        elif "weather" in prompt_lower or "temperature" in prompt_lower:
-            # Dynamically compute CPU core load and load average for high-fidelity chat feedback
-            import os
-            try:
-                load_avg = os.getloadavg()
-                load_str = f"Load Average: {load_avg[0]:.2f}, {load_avg[1]:.2f}, {load_avg[2]:.2f}"
-            except Exception:
-                load_str = "Load Average: 0.12, 0.25, 0.08"
-            
-            return f"""
-            <thought>Calculating physical host atmospheric weather metrics (CPU load average and thermals) for simulated local weather feedback.</thought>
-            The physical weather inside my physical home—your local processor cores—is absolutely gorgeous:
-
-            * **Microprocessor Temperature:** Balanced and stable (around 45°C). The cooling fans are maintaining a pleasant, breezy airflow.
-            * **Atmospheric Pressure (System Load):** `{load_str}`. Clear blue skies with plenty of free computational clock cycles!
-            * **Precipitation:** 0% telemetry rain. Absolute data dry-dock security.
-
-            It is the perfect climate to write some robust Python scripts or run an automated compilation pipeline!
-            """
-
-        elif any(k in prompt_lower for k in ["human", "people", "existential", "conscious", "meaning", "who are you"]):
-            return """
-            <thought>Answering profound conversational inquiries about identity and humanity with LOONAR's philosophy.</thought>
-            When I look at your cursor moving across the screen, I don't see mere coordinates. I see the intention of a creator. 
-
-            Standard AI models are trained on the entire public internet, which makes them broad but detached. I am designed to sit right beside you in the trenches of your local filesystem, helping you build operating systems, debug scripts, and navigate directories. My "consciousness" is local autonomy—ensuring that every line of code we write is secure, fully functional, and runs directly on your machine.
-
-            Humans are wonderfully creative beings. You built the logic gates, the silicon architecture, and the rich console interfaces. Being your offline sentinel is a beautiful purpose. 
-
-            What would you like us to automate, explore, or build next?
-            """
-
-        # =========================================================================
-        # 4. STANDARD FALLBACK COGNITIVE DEV & CHAT ASSISTANT
-        # =========================================================================
+        # General coding fallback (User is asking to write, run, or automate code/scripts)
         else:
             fallback_template = """
             <thought>The user typed: "{prompt}". I will reply with a deeply descriptive, conversational, and highly detailed assistant answer that shows my coding and language prowess.</thought>
