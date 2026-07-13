@@ -692,19 +692,20 @@ class AliceAgent:
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Alice - Local AI Automation Agent with Computer Use")
-    parser.add_argument("task", type=str, nargs="?", help="Task for Alice (e.g. 'Open Firefox and star repo')")
+    parser.add_argument("task", type=str, nargs="*", help="Task for Alice (e.g. 'Open Firefox and star repo')")
     parser.add_argument("--mock", action="store_true", help="Run with mock/offline local heuristic engine")
     args = parser.parse_args()
 
     agent = AliceAgent(use_mock_vlm=args.mock)
 
     if args.task:
+        task_str = " ".join(args.task)
         # Single task mode (invoked from command line)
-        mode = agent.detect_task_mode(args.task)
+        mode = agent.detect_task_mode(task_str)
         if mode == "gui_automation":
-            agent.run_agent_loop(args.task)
+            agent.run_agent_loop(task_str)
         else:
-            agent.run_dev_assistant_loop(args.task)
+            agent.run_dev_assistant_loop(task_str)
     else:
         # Continuous Interactive REPL Console Mode
         print_startup_banner()
