@@ -1,0 +1,6 @@
+{
+  "name": "OpenAutomation",
+  "description": "Local-first AI agent Alice simulating GUI Computer Use, terminal agent workflows, and visual parsing using the custom LOONAR v1.0 local engine.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
