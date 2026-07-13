@@ -96,28 +96,62 @@ echo -e "\n${CYAN}[*] Phase 3: Registering global 'alice' CLI terminal command..
 
 # Find the absolute path to this folder
 ROOT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-BIN_TARGET="$HOME/.local/bin"
 
-mkdir -p "$BIN_TARGET"
-
-# Create launcher script wrapper in ~/.local/bin
-LAUNCHER_PATH="$BIN_TARGET/alice"
-
-cat << EOF > "$LAUNCHER_PATH"
-#!/usr/bin/env bash
+LAUNCHER_CONTENT="#!/usr/bin/env bash
 # Auto-generated Alice launcher script by install.sh
 
 # Ensure venv is activated for execution context
-source "$ROOT_DIR/.venv/bin/activate"
+source \"$ROOT_DIR/.venv/bin/activate\"
 
 # Execute Alice Agent with absolute path
-python3 "$ROOT_DIR/agent.py" "\$@"
-EOF
+python3 \"$ROOT_DIR/agent.py\" \"\$@\""
 
-chmod +x "$LAUNCHER_PATH"
+# Try writing to /usr/local/bin first (instantly works everywhere)
+echo -e "[*] Writing launcher script to /usr/local/bin/alice (requires sudo)..."
+if echo "$LAUNCHER_CONTENT" | sudo tee /usr/local/bin/alice > /dev/null; then
+    sudo chmod +x /usr/local/bin/alice
+    echo -e "${GREEN}[✓] Global launcher script registered successfully in /usr/local/bin/alice!${NC}"
+    echo -e "    ${GREEN}No terminal restart or PATH edits required! Just type 'alice' to run.${NC}"
+else
+    echo -e "${YELLOW}[!] Failed to write to /usr/local/bin. Falling back to local bin...${NC}"
+    BIN_TARGET="$HOME/.local/bin"
+    mkdir -p "$BIN_TARGET"
+    LAUNCHER_PATH="$BIN_TARGET/alice"
+    echo "$LAUNCHER_CONTENT" > "$LAUNCHER_PATH"
+    chmod +x "$LAUNCHER_PATH"
+    echo -e "${GREEN}[✓] Global launcher script mapped to fallback: ${YELLOW}$LAUNCHER_PATH${NC}"
 
-echo -e "${GREEN}[✓] Global launcher script mapped to: ${YELLOW}$LAUNCHER_PATH${NC}"
-echo -e "    (Make sure $HOME/.local/bin is inside your system PATH environment variable)"
+    # Ensure ~/.local/bin is in the PATH
+    if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+        echo -e "\n${YELLOW}[!] PATH Configuration Alert:${NC}"
+        echo -e "    The directory ${YELLOW}$HOME/.local/bin${NC} is not in your current shell's PATH."
+        echo -e "    Typing 'alice' will fail until this is added."
+        echo -e "    Adding 'export PATH=\"\$HOME/.local/bin:\$PATH\"' to your shell configurations..."
+
+    # Add to ~/.bashrc if it exists
+    if [ -f "$HOME/.bashrc" ]; then
+        if ! grep -q "export PATH=\"\$HOME/.local/bin:\$PATH\"" "$HOME/.bashrc"; then
+            echo -e "\n# Added by Alice Agent Installer" >> "$HOME/.bashrc"
+            echo "export PATH=\"\$HOME/.local/bin:\$PATH\"" >> "$HOME/.bashrc"
+            echo -e "    ${GREEN}[✓] Successfully appended to ~/.bashrc${NC}"
+        fi
+    fi
+
+    # Add to ~/.zshrc if it exists (very common in modern systems/Arch users)
+    if [ -f "$HOME/.zshrc" ]; then
+        if ! grep -q "export PATH=\"\$HOME/.local/bin:\$PATH\"" "$HOME/.zshrc"; then
+            echo -e "\n# Added by Alice Agent Installer" >> "$HOME/.zshrc"
+            echo "export PATH=\"\$HOME/.local/bin:\$PATH\"" >> "$HOME/.zshrc"
+            echo -e "    ${GREEN}[✓] Successfully appended to ~/.zshrc${NC}"
+        fi
+    fi
+
+    # Print reload advice
+    echo -e "    ${CYAN}👉 IMPORTANT: Please reload your shell or open a new terminal window to apply!${NC}"
+    echo -e "       Or run: ${YELLOW}source ~/.bashrc${NC} (or ${YELLOW}source ~/.zshrc${NC})"
+else
+    echo -e "    ${GREEN}[✓] $HOME/.local/bin is already in your PATH.${NC}"
+fi
 
 # 4. Ollama Vision Model Advice
 echo -e "\n${CYAN}[*] Phase 4: Validating local AI inference engine (Ollama)...${NC}"

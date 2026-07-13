@@ -85,8 +85,8 @@ Alice has a robust launcher wrapper that coordinates packages automatically.
 Clone this repository to your Linux desktop and execute the installer:
 
 ```bash
-git clone https://github.com/OpenAutomation/alice.git
-cd alice
+git clone https://github.com/insanityvrr-dot/OpenAutomation.git
+cd OpenAutomation
 chmod +x install.sh
 ./install.sh
 ```
