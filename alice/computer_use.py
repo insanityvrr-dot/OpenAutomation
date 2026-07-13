@@ -221,12 +221,19 @@ class ComputerUseDriver:
             print(f"[Simulated Type] -> '{text}'")
             return
 
-        if self.display_server == "wayland" and shutil.which("ydotool"):
-            try:
-                subprocess.run(["ydotool", "type", text], check=True)
-                return
-            except subprocess.SubprocessError:
-                pass
+        if self.display_server == "wayland":
+            if shutil.which("wtype"):
+                try:
+                    subprocess.run(["wtype", text], check=True)
+                    return
+                except subprocess.SubprocessError:
+                    pass
+            if shutil.which("ydotool"):
+                try:
+                    subprocess.run(["ydotool", "type", text], check=True)
+                    return
+                except subprocess.SubprocessError:
+                    pass
 
         for char in text:
             pyautogui.write(char)

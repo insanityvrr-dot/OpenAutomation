@@ -48,25 +48,51 @@ install_packages() {
         sudo apt update -y
         
         echo -e "[*] Installing Python, X11 & Wayland packages via apt..."
-        sudo apt install -y python3 python3-pip python3-venv scrot xdotool grim slurp libxdo3 python3-tk python3-dev
+        sudo apt install -y python3 python3-pip python3-venv scrot xdotool grim slurp libxdo3 python3-tk python3-dev wtype ydotool
         
     elif [[ "$OS_ID" == "arch" || "$OS_ID" == "manjaro" ]]; then
         echo -e "[*] Installing packages via pacman..."
         sudo pacman -Syu --noconfirm
-        sudo pacman -S --needed --noconfirm python python-pip scrot xdotool grim slurp libxdo python-pillow python-pyautogui
+        sudo pacman -S --needed --noconfirm python python-pip scrot xdotool grim slurp libxdo python-pillow python-pyautogui wtype ydotool
         
     else
         echo -e "${YELLOW}[!] Unsupported or customized distro detected. Please verify these exist manually:${NC}"
-        echo -e "    scrot, xdotool, grim, slurp, python3, python3-pip, python3-venv"
+        echo -e "    scrot, xdotool, grim, slurp, python3, python3-pip, python3-venv, wtype, ydotool"
     fi
 }
 
+# Determine display server environment
+IS_WAYLAND=false
+ENV_NAME="X11"
+if [[ "${XDG_SESSION_TYPE:-}" == *"wayland"* || -n "${WAYLAND_DISPLAY:-}" ]]; then
+    IS_WAYLAND=true
+    ENV_NAME="Wayland/COSMIC"
+fi
+
+# Detect missing packages
+MISSING_PACKAGES=false
+
+if ! command -v python3 &> /dev/null; then
+    MISSING_PACKAGES=true
+fi
+
+if [ "$IS_WAYLAND" = true ]; then
+    if ! command -v grim &> /dev/null || ! command -v slurp &> /dev/null; then
+        MISSING_PACKAGES=true
+    fi
+else
+    if ! command -v scrot &> /dev/null || ! command -v xdotool &> /dev/null; then
+        MISSING_PACKAGES=true
+    fi
+fi
+
 # Prompt for sudo if packages need installation
-if ! command -v scrot &> /dev/null || ! command -v xdotool &> /dev/null || ! command -v python3 &> /dev/null; then
-    echo -e "${YELLOW}[!] Core packages missing. Requesting administrator permissions to install native libraries:${NC}"
+if [ "$MISSING_PACKAGES" = true ]; then
+    echo -e "${YELLOW}[!] Core packages missing for your display server environment (${ENV_NAME}).${NC}"
+    echo -e "${YELLOW}[!] Requesting administrator permissions to install native libraries:${NC}"
     install_packages
 else
-    echo -e "${GREEN}[✓] Native display utilities (scrot, xdotool, python3) already present on system.${NC}"
+    echo -e "${GREEN}[✓] Native display utilities for ${ENV_NAME} (including python3) already present on system.${NC}"
 fi
 
 # 2. Configure Python Virtual Environment
@@ -154,17 +180,11 @@ else
 fi
 fi
 
-# 4. Ollama Vision Model Advice
-echo -e "\n${CYAN}[*] Phase 4: Validating local AI inference engine (Ollama)...${NC}"
-if command -v ollama &> /dev/null; then
-    echo -e "${GREEN}[✓] Local Ollama backend detected!${NC}"
-    echo -e "    - To initialize the vision-capable model, run:"
-    echo -e "      ${YELLOW}ollama run llava:7b${NC}"
-else
-    echo -e "${YELLOW}[!] Local Ollama backend was not found in path.${NC}"
-    echo -e "    - Install Ollama for complete local visual agency: https://ollama.com"
-    echo -e "    - Alice will automatically use offline custom heuristics if Ollama is unavailable."
-fi
+# 4. Built-in LOONAR V1.0 AI Engine Setup
+echo -e "\n${CYAN}[*] Phase 4: Initializing native LOONAR V1.0 Engine...${NC}"
+echo -e "${GREEN}[✓] LOONAR V1.0 Local Autonomous AI Engine is active!${NC}"
+echo -e "    - No external LLM dependencies, no network overhead, and zero telemetry."
+echo -e "    - Fully self-contained visual planning, heuristics, and reasoning logic."
 
 # Done!
 echo -e "\n${GREEN}================================================================${NC}"

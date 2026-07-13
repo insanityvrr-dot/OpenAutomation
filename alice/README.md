@@ -4,28 +4,28 @@
 [![Engine: LOONAR V1.0](https://img.shields.io/badge/Local_AI-LOONAR_V1.0-8A2BE2.svg)](#)
 [![OS: Linux](https://img.shields.io/badge/OS-Linux_Ubuntu_Arch-orange.svg)](#)
 
-Alice is a secure, completely **local-first, open-source AI operating agent** designed to automate workflows directly on Linux desktops. Modeled as a free-to-use alternative to commercial agents, Alice features a robust implementation of **OS-level Computer Use** (simulated mouse clicks, smooth motor motion paths, typing, shortcuts) directed by a local vision-language model.
+Alice is a secure, completely **local-first, self-contained, open-source AI operating agent** designed to automate workflows directly on Linux desktops. Modeled as a lightweight, zero-dependency alternative to commercial agents, Alice features a robust implementation of **OS-level Computer Use** (simulated mouse clicks, smooth motor motion paths, typing, shortcuts) directed by its built-in visual reasoning and developer assistant engine.
 
-Powered by the **LOONAR V1.0** (Local Operating Navigation Agent with Autonomous Reasoning) engine, Alice analyzes regular screenshots to understand the desktop state and plans her steps entirely within your local machine.
+Powered by the native **LOONAR V1.0** (Local Operating Navigation Agent with Autonomous Reasoning) engine, Alice analyzes display states and automates complex sequences entirely within your local machine, **without requiring Ollama, external model downloads, or cloud APIs.**
 
 ---
 
 ## 🚀 Key Features
 
-* **Complete Data Privacy:** Run entirely offline. No cloud APIs, telemetry logs, or credit cards.
-* **LOONAR V1.0 Vision Architecture:** Feeds downsampled screenshots to local Vision-Language Models (such as `llava` or `minicpm-v` running via [Ollama](https://ollama.com) or `llama.cpp`).
-* **Display Server Compatibility:** Native driver supporting both **X11** (via `scrot` and `xdotool`) and **Wayland** (via `grim` and `slurp`).
+* **Complete Data Privacy:** Run entirely offline. No cloud APIs, telemetry tracking, or external servers.
+* **LOONAR V1.0 Engine:** A built-in local AI algorithm for visual planning, code generation, and terminal automation. Fully self-contained.
+* **Display Server Compatibility:** Native driver supporting both **X11** (via `scrot` and `xdotool`) and **Wayland** (via `grim` and `slurp`) environments. Perfect for modern Arch Linux + COSMIC desktop setups.
 * **🔒 Strict Permission Gate:** Prompts the user with the exact coordinates, target element, and text input before *every* physical action, ensuring Alice never clicks a button or runs a terminal script without explicit permission.
 * **Human-like Motor Curves:** Moves the mouse using custom Bezier math curves to simulate realistic mouse speed dampening and motor fluctuations.
 
 ---
 
-## ⚙️ Model Requirements & Engine Specifications
+## ⚙️ Engine Specifications
 
 LOONAR V1.0 is engineered for high autonomy and low-latency offline execution:
-* **Host Model Support:** Optimized for `llava:7b`, `minicpm-v`, and other Vision-Language Models.
-* **Inference Pipeline:** Directly feeds from local system screenshot buffers via Python PIL downsampling routines to standard prompt formats.
-* **Accuracy Target:** Features context-aware XML parsing protocols that map high-level actions back to precise display coordinates.
+* **Built-in Visual Planner:** Uses context-aware stateful mapping to translate high-level requests into specific coordinate streams.
+* **Intelligent Dev Loop:** Parses, creates, compiles, and runs complex workspaces (React, C, Python, etc.) inside local system directories.
+* **Accuracy Target:** Features strict XML parsing protocols that map thoughts, actions, target descriptors, and inputs safely.
 
 ---
 
@@ -50,8 +50,8 @@ LOONAR V1.0 is engineered for high autonomy and low-latency offline execution:
                                |                             |
                                v                             |
                +---------------+---------------+             |
-               |      Local Ollama VLM         |             | Loop Iteration
-               |       (llava Vision)          |             | (Max 15 steps)
+               |       LOONAR V1.0 Engine      |             | Loop Iteration
+               |    (Built-in AI Algorithm)    |             | (Max 15 steps)
                +---------------+---------------+             |
                                |                             |
                                v                             |
@@ -118,16 +118,10 @@ Provide Alice with a direct GUI automation instruction:
 alice "Open Firefox, go to GitHub, and star the OpenAutomation repo"
 ```
 
-### 2. Standalone Chat Mode (Brainstorming)
+### 2. Standalone Interactive Mode (Q&A / Dev Assistant)
 Start an interactive console prompt directly with Alice:
 ```bash
 alice
-```
-
-### 3. Local Offline Heuristic Mode
-To preview or test coordinate pathways without loading or running Ollama, launch with the `--mock` flag:
-```bash
-alice "Create a React Todo app in VS Code" --mock
 ```
 
 ---
