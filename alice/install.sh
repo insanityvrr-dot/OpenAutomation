@@ -152,6 +152,7 @@ else
 else
     echo -e "    ${GREEN}[✓] $HOME/.local/bin is already in your PATH.${NC}"
 fi
+fi
 
 # 4. Ollama Vision Model Advice
 echo -e "\n${CYAN}[*] Phase 4: Validating local AI inference engine (Ollama)...${NC}"
